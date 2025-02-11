@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta name="viewport" content="width = device-width, initial-scale = 1" />
+    <script src="data/src/gamepad.js"></script>
+    <style>
+      @font-face {
+        font-family: "Haffer";
+        src: url("fonts/Haffer-Regular.woff2") format("woff2");
+        font-weight: normal;
+        font-style: normal;
+      }
+
+      @font-face {
+        font-family: "Haffer";
+        src: url("fonts/Haffer-Medium.woff2") format("woff2");
+        font-weight: 500;
+        font-style: normal;
+      }
+
+      body,
+      html {
+        height: 100%;
+        background-color: black;
+        color: white;
+        margin: 0;
+        font-family: "Haffer", sans-serif;
+      }
+
+      body {
+        margin: 0;
+        overflow: hidden;
+        display: flex;
+      }
+
+      .container {
+        display: flex;
+        width: 100%;
+        height: 100%;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .left-column {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        padding: 4rem;
+        max-width: 600px;
+        text-align: center;
+      }
+
+      .title {
+        font-family: "Haffer", sans-serif;
+        font-weight: 500;
+        font-size: 3.5rem;
+        margin-bottom: 0.5rem;
+        text-align: center;
+      }
+
+      .flair {
+        font-family: "Haffer", sans-serif;
+        font-size: 1.2rem;
+        color: #aaa;
+        margin-bottom: 2.5rem;
+        text-align: center;
+        font-weight: normal;
+      }
+
+      .choose-rom-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        background: #ffffff;
+        border-radius: 12px;
+        width: 300px;
+        height: 44px;
+        color: #000000;
+        font-family: "Haffer", sans-serif;
+        font-size: 16px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        position: relative;
+      }
+
+      .choose-rom-btn:hover {
+        transform: translateY(-2px);
+        opacity: 0.9;
+      }
+
+      .choose-rom-btn::before {
+        content: "";
+        display: block;
+        width: 24px;
+        height: 24px;
+        background: url("images/hardware-hint-A.png") center/contain no-repeat;
+        position: absolute;
+        left: 16px;
+      }
+
+      #input {
+        display: none;
+      }
+
+      .error-message {
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: #ff4444;
+        color: white;
+        padding: 15px 25px;
+        border-radius: 4px;
+        font-family: "Haffer", sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        z-index: 1000;
+        animation: fadeIn 0.3s ease-in;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translate(-50%, -20px);
+        }
+        to {
+          opacity: 1;
+          transform: translate(-50%, 0);
+        }
+      }
+
+      #display {
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="container">
+      <div class="left-column">
+        <h1 class="title">Backbone Super Emulator</h1>
+        <p class="flair">
+          Play your favorte classics right here in the Backbone app.
+        </p>
+        <label class="choose-rom-btn" for="input">Choose a ROM</label>
+        <input type="file" id="input" />
+      </div>
+    </div>
+
+    <script>
+      // Check browser environment and Gamepad API support
+      console.log('🌐 User Agent:', navigator.userAgent);
+      console.log('🎮 Gamepad API available:', !!navigator.getGamepads || !!navigator.webkitGetGamepads);
+      
+      // Initialize GamepadHandler
+      let gamepadHandler;
+      try {
+        gamepadHandler = new GamepadHandler();
+        console.log('✅ GamepadHandler initialized successfully');
+      } catch (error) {
+        console.warn('⚠️ Failed to initialize GamepadHandler:', error);
+      }
+      
+      // Listen for gamepad connections
+      if (gamepadHandler) {
+        gamepadHandler.on('connected', (e) => {
+          console.log('🎮 Gamepad connected:', e.gamepadIndex);
+          // Log gamepad details
+          const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+          const gamepad = gamepads[e.gamepadIndex];
+          if (gamepad) {
+            console.log('📱 Gamepad details:', {
+              id: gamepad.id,
+              buttons: gamepad.buttons.length,
+              axes: gamepad.axes.length
+            });
+          }
+        });
+
+        // Listen for gamepad disconnections
+        gamepadHandler.on('disconnected', (e) => {
+          console.log('🎮 Gamepad disconnected:', e.gamepadIndex);
+        });
+        
+        // Listen for gamepad button presses
+        gamepadHandler.on('buttondown', (e) => {
+          console.log(`🎮 Button pressed: ${e.label} (index: ${e.index})`);
+          // Button index 0 is typically the 'A' button on most gamepads
+          if (e.index === 0) {
+            console.log('🎮 A button pressed - opening file selector');
+            // Simulate a click on the file input
+            document.getElementById('input').click();
+          }
+        });
+
+        // Listen for gamepad button releases
+        gamepadHandler.on('buttonup', (e) => {
+          console.log(`🎮 Button released: ${e.label} (index: ${e.index})`);
+        });
+      }
+
+      let enableDebug = false;
+      let enableThreads = false;
+      const queryString = window.location.search;
+      const urlParams = new URLSearchParams(queryString);
+
+      window.EJS_DEBUG_XX = urlParams.get("debug") == 1;
+      window.EJS_threads = urlParams.get("threads") == 1;
+
+      if (window.EJS_DEBUG_XX) {
+        console.log("Debug is enabled");
+      } else {
+        console.log("Debug is disabled");
+      }
+
+      // Check if SharedArrayBuffer is available
+      if (!window.SharedArrayBuffer) {
+        console.warn(
+          "SharedArrayBuffer is not available. Required headers are missing:\n" +
+            "Cross-Origin-Opener-Policy: same-origin\n" +
+            "Cross-Origin-Embedder-Policy: require-corp\n" +
+            "Please configure your server to send these headers."
+        );
+      } else if (window.EJS_threads) {
+        console.log("Threads are enabled");
+      }
+
+      input.onchange = async () => {
+        const url = input.files[0];
+        const parts = input.files[0].name.split(".");
+        const ext = parts.pop().toLowerCase();
+
+        // Remove any existing error message
+        const existingError = document.querySelector(".error-message");
+        if (existingError) {
+          existingError.remove();
+        }
+
+        // Check if it's a PSP ISO file
+        if (["iso", "cso", "pbp"].includes(ext)) {
+          const errorDiv = document.createElement("div");
+          errorDiv.className = "error-message";
+          errorDiv.textContent =
+            "PSP games are currently not supported in this version. Please try a different ROM type.";
+          document.body.appendChild(errorDiv);
+
+          // Auto-remove the message after 5 seconds
+          setTimeout(() => {
+            errorDiv.style.opacity = "0";
+            errorDiv.style.transform = "translate(-50%, -20px)";
+            errorDiv.style.transition = "all 0.3s ease-out";
+            setTimeout(() => errorDiv.remove(), 300);
+          }, 5000);
+
+          input.value = ""; // Clear the file input
+          return;
+        }
+
+        const core = await (async (ext) => {
+          if (["fds", "nes", "unif", "unf"].includes(ext)) return "nes";
+
+          if (
+            ["smc", "fig", "sfc", "gd3", "gd7", "dx2", "bsx", "swc"].includes(
+              ext
+            )
+          )
+            return "snes";
+
+          if (["z64", "n64"].includes(ext)) return "n64";
+
+          if (["pce"].includes(ext)) return "pce";
+
+          if (["ngp", "ngc"].includes(ext)) return "ngp";
+
+          if (["ws", "wsc"].includes(ext)) return "ws";
+
+          if (["col", "cv"].includes(ext)) return "coleco";
+
+          if (["d64"].includes(ext)) return "vice_x64sc";
+
+          if (["nds", "gba", "gb", "z64", "n64"].includes(ext)) return ext;
+
+          return await new Promise((resolve) => {
+            var coreValues = {
+              "Nintendo 64": "n64",
+              "Nintendo Game Boy": "gb",
+              "Nintendo Game Boy Advance": "gba",
+              "Nintendo DS": "nds",
+              "Nintendo Entertainment System": "nes",
+              "Super Nintendo Entertainment System": "snes",
+              PlayStation: "psx",
+              "PlayStation Portable": "ppsspp",
+              "Virtual Boy": "vb",
+              "Sega Mega Drive": "segaMD",
+              "Sega Master System": "segaMS",
+              "Sega CD": "segaCD",
+              "Atari Lynx": "lynx",
+              "Sega 32X": "sega32x",
+              "Atari Jaguar": "jaguar",
+              "Sega Game Gear": "segaGG",
+              "Sega Saturn": "segaSaturn",
+              "Atari 7800": "atari7800",
+              "Atari 2600": "atari2600",
+              Arcade: "arcade",
+              "NEC TurboGrafx-16/SuperGrafx/PC Engine": "pce",
+              "NEC PC-FX": "pcfx",
+              "SNK NeoGeo Pocket (Color)": "ngp",
+              "Bandai WonderSwan (Color)": "ws",
+              ColecoVision: "coleco",
+              "Commodore 64": "vice_x64sc",
+              "Commodore 128": "vice_x128",
+              "Commodore VIC20": "vice_xvic",
+              "Commodore Plus/4": "vice_xplus4",
+              "Commodore PET": "vice_xpet",
+            };
+
+            const cores = Object.keys(coreValues)
+              .sort()
+              .reduce((obj, key) => {
+                obj[key] = coreValues[key];
+                return obj;
+              }, {});
+
+            const button = document.createElement("button");
+            const select = document.createElement("select");
+
+            for (const type in cores) {
+              const option = document.createElement("option");
+              option.value = cores[type];
+              option.textContent = type;
+              select.appendChild(option);
+            }
+
+            const container = document.createElement('div');
+            container.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #333; padding: 2rem; border-radius: 12px;';
+            
+            button.onclick = () => {
+              container.remove();
+              resolve(select[select.selectedIndex].value);
+            };
+            button.textContent = "Load game";
+            button.className = "choose-rom-btn";
+
+            container.appendChild(select);
+            container.appendChild(button);
+            document.body.appendChild(container);
+          });
+        })(ext);
+
+        const div = document.createElement("div");
+        const sub = document.createElement("div");
+        const script = document.createElement("script");
+
+        sub.id = "game";
+        div.id = "display";
+
+        document.querySelector('.container').remove();
+        div.appendChild(sub);
+        document.body.appendChild(div);
+
+        window.EJS_player = "#game";
+        window.EJS_gameName = parts.shift();
+        window.EJS_biosUrl = "";
+        window.EJS_gameUrl = url;
+        window.EJS_core = core;
+        window.EJS_pathtodata = "data/";
+        window.EJS_startOnLoaded = true;
+        window.EJS_disableDatabases = true;
+        
+
+        script.src = "data/loader.js";
+        document.body.appendChild(script);
+      };
+    </script>
+  </body>
+</html>

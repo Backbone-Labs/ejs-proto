@@ -1,0 +1,19 @@
+{
+  "name": "@emulatorjs/emulatorjs",
+  "version": "4.2.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/EmulatorJS/EmulatorJS.git"
+  },
+  "license": "GPL-3.0",
+  "description": "EmulatorJS is a frontend for RetroArch in the web browser.",
+  "scripts": {
+    "dev": "http-server --config http-server.json",
+    "build": "rm -rf build && mkdir build && cp -r index.html fonts images data build/ && cd build && zip -r ../build/emulator-build.zip .",
+    "vercel-build": "npm run build"
+  },
+  "dependencies": {
+    "archiver": "^5.3.1",
+    "http-server": "^14.1.1"
+  }
+}
