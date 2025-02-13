@@ -190,7 +190,7 @@
       }
     }
 
-    window.updateDebugOverlay = updateDebugOverlay;
+    window.console.log = console.log;
 
     // Check for ROM in URL parameters
     async function checkForROM() {
@@ -198,7 +198,7 @@
       const romPath = urlParams.get('rom');
 
       if (romPath) {
-        updateDebugOverlay(`Checking for ROM at path: ${romPath}`);
+        console.log(`Checking for ROM at path: ${romPath}`);
         try {
           // Ensure proper URL construction by removing any leading slashes
           const cleanPath = romPath.replace(/^\/+/, '');
@@ -212,9 +212,9 @@
 
           // Process the ROM file!
           await processROMFile(file);
-          updateDebugOverlay(`Successfully loaded ROM: ${filename}`);
+          console.log(`Successfully loaded ROM: ${filename}`);
         } catch (error) {
-          updateDebugOverlay(`Error loading ROM: ${error.message}`);
+          console.log(`Error loading ROM: ${error.message}`);
           console.error('Error loading ROM:', error);
           showError("Failed to load ROM. Please try again.");
         }
@@ -249,9 +249,9 @@
         }
 
         loadEmulator(file, core, parts.join('.'));
-        updateDebugOverlay(`ROM loaded successfully with core: ${core}`);
+        console.log(`ROM loaded successfully with core: ${core}`);
       } catch (error) {
-        updateDebugOverlay(`Error processing ROM: ${error.message}`);
+        console.log(`Error processing ROM: ${error.message}`);
         showError("Failed to load ROM. Please try again.");
       }
     }
@@ -395,7 +395,7 @@
     try {
       gamepadHandler = new GamepadHandler();
     } catch (error) {
-      updateDebugOverlay(`⚠️ Failed to initialize GamepadHandler: ${error}`);
+      console.log(`⚠️ Failed to initialize GamepadHandler: ${error}`);
     }
 
     // Listen for gamepad connections
