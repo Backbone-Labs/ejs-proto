@@ -210,7 +210,7 @@
           const filename = romPath.split('/').pop(); // Get filename from path
           const file = new File([blob], filename, { type: 'application/octet-stream' });
 
-          // Process the ROM file
+          // Process the ROM file!
           await processROMFile(file);
           updateDebugOverlay(`Successfully loaded ROM: ${filename}`);
         } catch (error) {
