@@ -197,6 +197,97 @@
       }
     }
 
+    // Configure EmulatorJS settings
+    window.EJS_player = "#game";
+    window.EJS_biosUrl = "";
+    window.EJS_pathtodata = "data/";
+    window.EJS_startOnLoaded = true;
+    window.EJS_disableDatabases = true;
+
+    // Disable touch controls by default
+    window.EJS_disableTouchControls = true;
+    window.EJS_VirtualGamepadSettings = false;
+
+    // Hide all UI elements
+    window.EJS_hideMenuBar = true; // Hide bottom menu bar
+    window.EJS_hideSettingsMenu = true; // Hide settings menu
+    window.EJS_hideHomeButton = true; // Hide home button
+    window.EJS_hideControlSettings = true; // Hide control settings button
+    window.EJS_hideLoadStateButton = true; // Hide load state button
+    window.EJS_hideSaveStateButton = true; // Hide save state button
+    window.EJS_hideFullscreenButton = true; // Hide fullscreen button
+    window.EJS_hideCheatButton = true; // Hide cheat button
+    window.EJS_gamePatchUrl = ""; // No game patches
+
+    // Set default hotkeys for controller users
+    window.EJS_defaultControls = null; // Remove custom controller shortcuts
+
+    // Function to handle keyboard shortcuts since UI is hidden
+    function setupKeyboardShortcuts() {
+      window.addEventListener('keydown', (e) => {
+        // Only process if emulator is loaded
+        if (!window.EJS_emulator) return;
+
+        // Escape key to exit fullscreen
+        if (e.key === 'Escape' && document.fullscreenElement) {
+          document.exitFullscreen();
+        }
+      });
+    }
+
+    // Custom CSS to hide all UI elements
+    function addCleanInterfaceCSS() {
+      const style = document.createElement('style');
+      style.textContent = `
+        /* Hide all UI elements */
+        .ejs_menu_bar, 
+        .ejs_menu_button,
+        .ejs_menu,
+        .ejs_menu_wrap,
+        .ejs_context_menu,
+        .ejs_context_button,
+        .ejs_virtualGamepad_parent,
+        .ejs_touch_overlay,
+        .ejs_virtual_button,
+        .ejs_settings_button,
+        .ejs_settingsMenu,
+        .ejs_save_button,
+        .ejs_load_button,
+        .ejs_fullscreen_button,
+        .ejs_pause_button,
+        .ejs_play_button,
+        .ejs_restart_button {
+          display: none !important;
+          opacity: 0 !important;
+          pointer-events: none !important;
+          visibility: hidden !important;
+        }
+        
+        /* Ensure canvas takes full space */
+        .ejs_canvas {
+          width: 100% !important;
+          height: 100% !important;
+        }
+        
+        /* Clean body and container */
+        body, html {
+          overflow: hidden;
+        }
+        
+        #display {
+          position: absolute;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    // Call the function immediately
+    addCleanInterfaceCSS();
+
     window.console.log = console.log;
 
     // Check for ROM in URL parameters
@@ -307,17 +398,234 @@
       div.appendChild(sub);
       document.body.appendChild(div);
 
-      window.EJS_player = "#game";
       window.EJS_gameName = gameName;
-      window.EJS_biosUrl = "";
       window.EJS_gameUrl = file;
       window.EJS_core = core;
-      window.EJS_pathtodata = "data/";
-      window.EJS_startOnLoaded = true;
-      window.EJS_disableDatabases = true;
 
       script.src = "data/loader.js";
       document.body.appendChild(script);
+
+      // Function to ensure emulator starts properly
+      function ensureEmulatorStarts() {
+        if (!window.EJS_emulator) return false;
+
+        try {
+          // Try multiple methods to ensure emulator starts
+
+          // 1. Check if there's a play button element and click it
+          const playButton = document.querySelector('.ejs_play_button');
+          if (playButton) {
+            console.log('Found play button, clicking it');
+            playButton.click();
+          }
+
+          // 2. Try using the emulator's internal functions to start
+          if (window.EJS_emulator.pause === true && typeof window.EJS_emulator.play === 'function') {
+            console.log('Emulator paused, calling play()');
+            window.EJS_emulator.play();
+          }
+
+          // 3. Try to trigger the canvas
+          const canvas = document.querySelector('.ejs_canvas');
+          if (canvas) {
+            console.log('Dispatching events to canvas');
+            canvas.focus();
+
+            // Create and dispatch multiple events to ensure activation
+            ['mousedown', 'mouseup', 'click'].forEach(eventType => {
+              const event = new MouseEvent(eventType, {
+                bubbles: true,
+                cancelable: true,
+                view: window,
+                clientX: canvas.width / 2,
+                clientY: canvas.height / 2
+              });
+              canvas.dispatchEvent(event);
+            });
+          }
+
+          // 4. For DS, try simulating a start button press
+          if (core === 'nds' && window.EJS_emulator.gameManager) {
+            console.log('Simulating Start button for DS');
+            window.EJS_emulator.gameManager.simulateInput(0, 9, 1);
+            setTimeout(() => {
+              window.EJS_emulator.gameManager.simulateInput(0, 9, 0);
+            }, 100);
+          }
+
+          return true;
+        } catch (err) {
+          console.error('Error in ensureEmulatorStarts:', err);
+          return false;
+        }
+      }
+
+      // Add a function to hide UI elements after emulator loads
+      const checkEmulator = setInterval(() => {
+        if (window.EJS_emulator) {
+          // First attempt to ensure emulator starts immediately
+          setTimeout(ensureEmulatorStarts, 500);
+
+          setTimeout(() => {
+            try {
+              // Hide all UI elements
+              const uiElementsToHide = [
+                '.ejs_menu_bar',
+                '.ejs_menu_button',
+                '.ejs_menu',
+                '.ejs_menu_wrap',
+                '.ejs_context_menu',
+                '.ejs_context_button',
+                '.ejs_virtualGamepad_parent',
+                '.ejs_touch_overlay',
+                '.ejs_virtual_button',
+                '.ejs_settings_button',
+                '.ejs_settingsMenu',
+                '.ejs_save_button',
+                '.ejs_load_button',
+                '.ejs_fullscreen_button',
+                '.ejs_pause_button',
+                '.ejs_play_button',
+                '.ejs_restart_button'
+              ];
+
+              uiElementsToHide.forEach(selector => {
+                const elements = document.querySelectorAll(selector);
+                elements.forEach(el => {
+                  el.style.display = 'none';
+                  el.style.opacity = '0';
+                  el.style.pointerEvents = 'none';
+                  el.style.visibility = 'hidden';
+                });
+              });
+
+              // Ensure the canvas takes up full space
+              const canvas = document.querySelector('.ejs_canvas');
+              if (canvas) {
+                canvas.style.width = '100%';
+                canvas.style.height = '100%';
+
+                // Try to activate the emulator by focusing and clicking the canvas
+                // This helps with DS ROMs that show a white screen and need a click to start
+                setTimeout(() => {
+                  try {
+                    canvas.focus();
+                    // Create and dispatch a click event to activate the emulator
+                    const clickEvent = new MouseEvent('click', {
+                      bubbles: true,
+                      cancelable: true,
+                      view: window
+                    });
+                    canvas.dispatchEvent(clickEvent);
+
+                    // For DS ROMs, also try sending a start button press
+                    if (core === "nds") {
+                      if (window.EJS_emulator && window.EJS_emulator.gameManager) {
+                        // Press and release the Start button (9)
+                        window.EJS_emulator.gameManager.simulateInput(0, 9, 1);
+                        setTimeout(() => {
+                          window.EJS_emulator.gameManager.simulateInput(0, 9, 0);
+                        }, 100);
+                      }
+                    }
+
+                    console.log('Activated emulator canvas');
+                  } catch (err) {
+                    console.error('Error activating emulator:', err);
+                  }
+                }, 500); // Short delay before activating
+              }
+
+              // For DS games, ensure touch controls are disabled
+              if (core === "nds") {
+                // Hide any DS-specific controls
+                if (window.EJS_emulator.virtualGamepad) {
+                  window.EJS_emulator.virtualGamepad.style.display = 'none';
+                }
+              }
+
+              // Add a MutationObserver to continuously hide elements as they might be recreated
+              const observer = new MutationObserver((mutations) => {
+                uiElementsToHide.forEach(selector => {
+                  const elements = document.querySelectorAll(selector);
+                  elements.forEach(el => {
+                    el.style.display = 'none';
+                    el.style.opacity = '0';
+                    el.style.pointerEvents = 'none';
+                    el.style.visibility = 'hidden';
+                  });
+                });
+              });
+
+              observer.observe(document.body, { childList: true, subtree: true });
+
+              // Set up keyboard shortcuts (minimal version)
+              setupKeyboardShortcuts();
+
+              // Try again to ensure emulator starts after UI changes
+              setTimeout(ensureEmulatorStarts, 500);
+
+              // Add a final check with a longer delay for persistent white screen issues
+              setTimeout(() => {
+                // Check if the emulator appears to be stuck (DS games especially)
+                if (core === "nds") {
+                  try {
+                    console.log("Final check for DS emulator startup");
+
+                    // Try direct methods to interact with the emulator
+                    if (typeof window.EJS_emulator.resetButtons === 'function') {
+                      window.EJS_emulator.resetButtons();
+                    }
+
+                    // For DS games specifically
+                    const startButton = document.querySelector('.ejs_start_button');
+                    if (startButton) {
+                      console.log("Clicking start button directly");
+                      startButton.click();
+                    }
+
+                    // Try using the emulator's internal play/pause toggle
+                    if (typeof window.EJS_emulator.togglePause === 'function') {
+                      window.EJS_emulator.togglePause();
+                      setTimeout(() => {
+                        if (window.EJS_emulator.pause === true) {
+                          window.EJS_emulator.togglePause();
+                        }
+                      }, 100);
+                    }
+
+                    // Last resort: try to force a refresh of the canvas
+                    const canvas = document.querySelector('.ejs_canvas');
+                    if (canvas) {
+                      // Create a mousedown event at the center of the canvas
+                      const centerX = canvas.width / 2 || 100;
+                      const centerY = canvas.height / 2 || 100;
+
+                      ['mousedown', 'mouseup', 'click'].forEach(eventType => {
+                        const event = new MouseEvent(eventType, {
+                          bubbles: true,
+                          cancelable: true,
+                          view: window,
+                          clientX: centerX,
+                          clientY: centerY
+                        });
+                        canvas.dispatchEvent(event);
+                      });
+                    }
+                  } catch (err) {
+                    console.error("Error in final DS startup check:", err);
+                  }
+                }
+              }, 5000); // Longer delay for final check
+
+              console.log('All UI elements hidden for ' + core);
+            } catch (error) {
+              console.error('Error hiding UI elements:', error);
+            }
+          }, 2000); // Wait 2 seconds after emulator loads
+          clearInterval(checkEmulator);
+        }
+      }, 100);
     }
 
     // Show core selection UI
@@ -399,6 +707,38 @@
     let gamepadHandler;
     let button0WasPressed = false; // Track button 0's state
 
+    // Helper function to simulate emulator button press with auto-release
+    function simulateButtonPress(buttonIndices, duration = 100) {
+      if (!window.EJS_emulator || !window.EJS_emulator.gameManager) {
+        return false;
+      }
+
+      try {
+        // Convert single button index to array for consistent handling
+        if (!Array.isArray(buttonIndices)) {
+          buttonIndices = [buttonIndices];
+        }
+
+        // Press all buttons
+        buttonIndices.forEach(index => {
+          window.EJS_emulator.gameManager.simulateInput(0, index, 1);
+        });
+
+        // Schedule release
+        setTimeout(() => {
+          buttonIndices.forEach(index => {
+            window.EJS_emulator.gameManager.simulateInput(0, index, 0);
+          });
+          console.log(`Simulated button press: ${buttonIndices.join('+')}`);
+        }, duration);
+
+        return true;
+      } catch (err) {
+        console.error(`Error simulating button press: ${err}`);
+        return false;
+      }
+    }
+
     try {
       gamepadHandler = new GamepadHandler();
     } catch (error) {
@@ -418,10 +758,26 @@
           if (e.index === 0) {
             const input = document.getElementById('input');
             if (input) {
+              // If we're on the ROM selection screen, click the input
               input.click();
+            } else if (window.EJS_emulator && window.EJS_emulator.gameManager) {
+              // Simulate Start+Select button press (9 = Start, 8 = Select)
+              simulateButtonPress([9, 8]);
             } else {
-              console.error("File input not found.");
+              console.error("Input not found and emulator not available");
             }
+          }
+
+          // Button index 1 is typically the 'B' button on most gamepads
+          if (e.index === 1) {
+            // Simulate only Start button press (9 = Start)
+            simulateButtonPress(9);
+          }
+
+          // Button index 2 is typically the 'X' button on most gamepads
+          if (e.index === 2) {
+            // Simulate only Select button press (8 = Select)
+            simulateButtonPress(8);
           }
         });
       });
@@ -452,6 +808,148 @@
     } else if (window.EJS_threads) {
       console.log("Threads are enabled");
     }
+
+    // Function to configure DS-specific settings
+    function configureForDS() {
+      // For DS games, we need to enable touch on the bottom screen
+      // but disable the virtual gamepad controls
+      window.EJS_disableTouchControls = false; // Enable touch for DS bottom screen
+      window.EJS_VirtualGamepadSettings = false; // Keep virtual gamepad hidden
+
+      // Add custom CSS to ensure DS touch works properly
+      const style = document.createElement('style');
+      style.textContent = `
+        /* Make sure the DS bottom screen is touchable */
+        .ejs_canvas {
+          touch-action: auto !important;
+        }
+        
+        /* Hide any virtual gamepad elements that might appear */
+        .ejs_virtualGamepad_parent {
+          display: none !important;
+        }
+      `;
+      document.head.appendChild(style);
+
+      // Set up a function to add the DS touch handler after emulator loads
+      const setupDSTouchHandler = setInterval(() => {
+        if (window.EJS_emulator && document.querySelector('.ejs_canvas')) {
+          clearInterval(setupDSTouchHandler);
+
+          // Add our custom DS touch handler
+          addDSTouchHandler();
+        }
+      }, 500);
+    }
+
+    // Function to add touch-to-click handler for DS bottom screen
+    function addDSTouchHandler() {
+      const canvas = document.querySelector('.ejs_canvas');
+      if (!canvas) return;
+
+      console.log('Adding DS touch screen handler');
+
+      // Get canvas dimensions
+      let canvasRect = canvas.getBoundingClientRect();
+
+      // Update canvas dimensions on resize
+      window.addEventListener('resize', () => {
+        canvasRect = canvas.getBoundingClientRect();
+      });
+
+      // Add touch event listeners
+      canvas.addEventListener('touchstart', handleDSTouch, { passive: false });
+      canvas.addEventListener('touchmove', handleDSTouch, { passive: false });
+      canvas.addEventListener('touchend', () => {
+        // Release mouse button on touch end
+        if (window.EJS_emulator && window.EJS_emulator.gameManager) {
+          window.EJS_emulator.gameManager.simulateInput(0, 0, 0); // Release left mouse button
+        }
+      }, { passive: false });
+
+      function handleDSTouch(e) {
+        // Prevent default behavior to avoid scrolling
+        e.preventDefault();
+
+        // Get touch coordinates
+        const touch = e.touches[0];
+        const x = touch.clientX - canvasRect.left;
+        const y = touch.clientY - canvasRect.top;
+
+        // Calculate if touch is in bottom screen (assuming bottom half of canvas is bottom screen)
+        const isBottomScreen = y > canvasRect.height / 2;
+
+        if (isBottomScreen && window.EJS_emulator && window.EJS_emulator.gameManager) {
+          // Convert touch coordinates to DS screen coordinates
+          // DS bottom screen is 256x192 pixels
+          const canvasWidth = canvasRect.width;
+          const canvasBottomHeight = canvasRect.height / 2;
+
+          // Scale touch position to DS bottom screen coordinates
+          const dsX = Math.floor((x / canvasWidth) * 256);
+          const dsY = Math.floor(((y - canvasRect.height / 2) / canvasBottomHeight) * 192);
+
+          // Log touch position for debugging
+          console.log(`DS touch: ${dsX}, ${dsY}`);
+
+          // Simulate mouse movement to position
+          window.EJS_emulator.gameManager.simulateMouseMove(0, dsX, dsY);
+
+          // Simulate mouse button press (button 0 = left click)
+          window.EJS_emulator.gameManager.simulateInput(0, 0, 1);
+        }
+      }
+
+      console.log('DS touch screen handler added');
+    }
+
+    // Function to toggle DS touch controls - can be called from iOS
+    window.toggleDSTouchControls = function (enabled) {
+      if (!window.EJS_emulator) {
+        console.log('Emulator not ready yet');
+        return false;
+      }
+
+      try {
+        if (window.EJS_core === 'nds') {
+          const canvas = document.querySelector('.ejs_canvas');
+          if (!canvas) {
+            console.log('Canvas not found');
+            return false;
+          }
+
+          if (enabled) {
+            // Enable our custom touch handler
+            if (!window._dsHandlerActive) {
+              addDSTouchHandler();
+              window._dsHandlerActive = true;
+            }
+          } else {
+            // Disable touch by removing event listeners
+            canvas.removeEventListener('touchstart', handleDSTouch);
+            canvas.removeEventListener('touchmove', handleDSTouch);
+            canvas.removeEventListener('touchend', handleDSTouch);
+            window._dsHandlerActive = false;
+          }
+
+          // Make sure virtual gamepad stays hidden
+          if (window.EJS_emulator.virtualGamepad) {
+            window.EJS_emulator.virtualGamepad.style.display = 'none';
+          }
+
+          console.log('DS touch controls ' + (enabled ? 'enabled' : 'disabled'));
+          return true;
+        } else {
+          console.log('Not a DS ROM');
+          return false;
+        }
+      } catch (error) {
+        console.error('Error toggling DS touch controls:', error);
+        return false;
+      }
+    };
+
+    window.console.log = console.log;
   </script>
 </body>
 
