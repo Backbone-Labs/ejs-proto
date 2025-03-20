@@ -49,6 +49,11 @@
       width: calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right));
     }
 
+    /* Hide only the bottom toolbar */
+    .ejs_menu_bar {
+      display: none !important;
+    }
+
     .left-column {
       display: flex;
       flex-direction: column;
@@ -165,6 +170,136 @@
       max-width: 80%;
       word-wrap: break-word;
     }
+
+    /* Hide only specific UI elements but keep start/select buttons */
+    .ejs_menu_bar,
+    .ejs_context_menu,
+    .ejs_context_button,
+    .ejs_settings_button,
+    .ejs_settingsMenu,
+    .ejs_save_button,
+    .ejs_load_button,
+    .ejs_fullscreen_button {
+      display: none !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+      visibility: hidden !important;
+    }
+
+    /* Hide start/select buttons */
+    .ejs_virtualGamepad_button[data-btn="start"],
+    .ejs_virtualGamepad_button[data-btn="select"],
+    .ejs_virtualGamepad_button[data-id="start"],
+    .ejs_virtualGamepad_button[data-id="select"],
+    .ejs_virtualGamepad_button.b_start,
+    .ejs_virtualGamepad_button.b_select,
+    [id*="start_button"],
+    [id*="select_button"],
+    [id*="start-button"],
+    [id*="select-button"],
+    .ejs_virtualGamepad_button:has(> span:contains('Start')),
+    .ejs_virtualGamepad_button:has(> span:contains('Select')) {
+      display: none !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+      visibility: hidden !important;
+      position: absolute !important;
+      left: -9999px !important;
+      top: -9999px !important;
+      z-index: -9999 !important;
+      transform: scale(0) !important;
+      max-height: 0 !important;
+      max-width: 0 !important;
+      overflow: hidden !important;
+    }
+
+    /* Hide fast/slow speed control buttons - much more aggressive targeting */
+    #speed_fast,
+    #speed_slow,
+    #speed_rewind,
+    [id*="speed_fast"],
+    [id*="speed_slow"],
+    [id*="speed_rewind"],
+    [id*="speed"],
+    div[id*="speed"],
+    button[id*="speed"],
+    .ejs_virtual_button[id*="speed"],
+    div.ejs_virtual_button[id*="speed"],
+    div[data-id*="speed"],
+    div[data-btn-id*="speed"],
+    /* Target by content */
+    .ejs_virtual_button:has(> span:contains('Fast')),
+    .ejs_virtual_button:has(> span:contains('Slow')),
+    .ejs_virtual_button:has(> span:contains('Rewind')),
+    /* Fallback targeting */
+    .ejs_virtual_button:nth-of-type(n+10):nth-of-type(-n+12) {
+      display: none !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+      visibility: hidden !important;
+      position: absolute !important;
+      left: -9999px !important;
+      top: -9999px !important;
+      z-index: -9999 !important;
+      transform: scale(0) !important;
+      max-height: 0 !important;
+      max-width: 0 !important;
+      overflow: hidden !important;
+    }
+
+    /* Additional targeting for any button with the text Fast, Slow, or Rewind */
+    .ejs_virtual_button {
+      visibility: visible;
+    }
+
+    /* Target specific buttons by their position */
+    .ejs_virtual_button[style*="left: -35px"][style*="top: 50px"],
+    .ejs_virtual_button[style*="left: 95px"][style*="top: 50px"],
+    .ejs_virtual_button[style*="left: 30px"][style*="top: 50px"] {
+      display: none !important;
+      visibility: hidden !important;
+    }
+
+    /* Keep these buttons visible */
+    .ejs_virtualGamepad_parent,
+    .ejs_touch_overlay,
+    .ejs_virtual_button,
+    .ejs_restart_button,
+    .ejs_play_button,
+    .ejs_pause_button {
+      /* Don't hide these - they include start/select buttons */
+    }
+
+    /* Ensure D-pad is visible and working */
+    .ejs_dpad_main,
+    .ejs_dpad_horizontal,
+    .ejs_dpad_vertical,
+    .ejs_dpad_bar {
+      display: block !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      pointer-events: auto !important;
+    }
+
+    /* Ensure canvas takes full space */
+    .ejs_canvas {
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    /* Clean body and container */
+    body,
+    html {
+      overflow: hidden;
+    }
+
+    #display {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+    }
   </style>
 </head>
 
@@ -235,32 +370,112 @@
       });
     }
 
+    // Create an invisible blocker for the top area where hamburger menu typically appears
+    const blocker = document.createElement('div');
+    blocker.id = 'ejs_ui_blocker';
+    document.body.appendChild(blocker);
+
     // Custom CSS to hide all UI elements
     function addCleanInterfaceCSS() {
       const style = document.createElement('style');
       style.textContent = `
-        /* Hide all UI elements */
+        /* Hide only specific UI elements but keep start/select buttons */
         .ejs_menu_bar, 
-        .ejs_menu_button,
-        .ejs_menu,
-        .ejs_menu_wrap,
         .ejs_context_menu,
         .ejs_context_button,
-        .ejs_virtualGamepad_parent,
-        .ejs_touch_overlay,
-        .ejs_virtual_button,
         .ejs_settings_button,
         .ejs_settingsMenu,
         .ejs_save_button,
         .ejs_load_button,
-        .ejs_fullscreen_button,
-        .ejs_pause_button,
-        .ejs_play_button,
-        .ejs_restart_button {
+        .ejs_fullscreen_button {
           display: none !important;
           opacity: 0 !important;
           pointer-events: none !important;
           visibility: hidden !important;
+        }
+        
+        /* Hide start/select buttons */
+        .ejs_virtualGamepad_button[data-btn="start"],
+        .ejs_virtualGamepad_button[data-btn="select"],
+        .ejs_virtualGamepad_button[data-id="start"],
+        .ejs_virtualGamepad_button[data-id="select"],
+        .ejs_virtualGamepad_button.b_start,
+        .ejs_virtualGamepad_button.b_select,
+        [id*="start_button"],
+        [id*="select_button"],
+        [id*="start-button"],
+        [id*="select-button"],
+        .ejs_virtualGamepad_button:has(> span:contains('Start')),
+        .ejs_virtualGamepad_button:has(> span:contains('Select')) {
+          display: none !important;
+          opacity: 0 !important;
+          pointer-events: none !important;
+          visibility: hidden !important;
+          position: absolute !important;
+          left: -9999px !important;
+          top: -9999px !important;
+          z-index: -9999 !important;
+          transform: scale(0) !important;
+          max-height: 0 !important;
+          max-width: 0 !important;
+          overflow: hidden !important;
+        }
+        
+        /* Hide fast/slow speed control buttons - much more aggressive targeting */
+        #speed_fast, 
+        #speed_slow, 
+        #speed_rewind,
+        [id*="speed_fast"],
+        [id*="speed_slow"],
+        [id*="speed_rewind"],
+        [id*="speed"],
+        div[id*="speed"],
+        button[id*="speed"],
+        .ejs_virtual_button[id*="speed"],
+        div.ejs_virtual_button[id*="speed"],
+        div[data-id*="speed"],
+        div[data-btn-id*="speed"],
+        /* Target by content */
+        .ejs_virtual_button:has(> span:contains('Fast')),
+        .ejs_virtual_button:has(> span:contains('Slow')),
+        .ejs_virtual_button:has(> span:contains('Rewind')),
+        /* Fallback targeting */
+        .ejs_virtual_button:nth-of-type(n+10):nth-of-type(-n+12) {
+          display: none !important;
+          opacity: 0 !important;
+          pointer-events: none !important;
+          visibility: hidden !important;
+          position: absolute !important;
+          left: -9999px !important;
+          top: -9999px !important;
+          z-index: -9999 !important;
+          transform: scale(0) !important;
+          max-height: 0 !important;
+          max-width: 0 !important;
+          overflow: hidden !important;
+        }
+        
+        /* Additional targeting for any button with the text Fast, Slow, or Rewind */
+        .ejs_virtual_button {
+          visibility: visible;
+        }
+        
+        /* Target specific buttons by their position */
+        .ejs_virtual_button[style*="left: -35px"][style*="top: 50px"],
+        .ejs_virtual_button[style*="left: 95px"][style*="top: 50px"],
+        .ejs_virtual_button[style*="left: 30px"][style*="top: 50px"] {
+          display: none !important;
+          visibility: hidden !important;
+        }
+        
+        /* Keep these buttons visible */
+        .ejs_virtualGamepad_parent,
+        .ejs_touch_overlay,
+        .ejs_virtual_button,
+        .ejs_restart_button,
+        .ejs_play_button,
+        .ejs_pause_button {
+          /* Don't hide these - they include start/select buttons */
         }
         
         /* Ensure canvas takes full space */
@@ -405,6 +620,301 @@
       script.src = "data/loader.js";
       document.body.appendChild(script);
 
+      // Override the createBottomMenuBar method to respect EJS_hideMenuBar setting
+      const overrideScript = document.createElement("script");
+      overrideScript.innerHTML = `
+        // Early interceptor for the emulator to prevent speed buttons
+        window.EJS_disableSpeedButtons = true;
+        
+        // Wait for the loader.js script to load
+        document.addEventListener('DOMContentLoaded', () => {
+          // Monitor for EmulatorJS being added to window
+          const originalDefineProperty = Object.defineProperty;
+          Object.defineProperty = function(obj, prop, descriptor) {
+            // Check if this is the EmulatorJS constructor being defined
+            if (obj === window && prop === 'EmulatorJS' && descriptor && descriptor.value) {
+              console.log('Intercepting EmulatorJS definition');
+              
+              // Store original constructor
+              const originalConstructor = descriptor.value;
+              
+              // Replace with our modified constructor
+              descriptor.value = function() {
+                // Call original constructor
+                const instance = new originalConstructor(...arguments);
+                
+                // Modify the instance to prevent speed buttons
+                if (instance) {
+                  instance.speedControlButtons = [];
+                  
+                  // Add a hidden property to track our modifications
+                  Object.defineProperty(instance, '_speedButtonsDisabled', {
+                    value: true,
+                    writable: false,
+                    enumerable: false
+                  });
+                }
+                
+                return instance;
+              };
+              
+              // Ensure prototype inheritance works correctly
+              descriptor.value.prototype = originalConstructor.prototype;
+            }
+            
+            return originalDefineProperty.call(this, obj, prop, descriptor);
+          };
+        });
+        
+        // Wait for the emulator to load
+        const waitForEmulator = setInterval(() => {
+          if (window.EmulatorJS) {
+            clearInterval(waitForEmulator);
+            
+            // Store the original method
+            const originalCreateBottomMenuBar = EmulatorJS.prototype.createBottomMenuBar;
+            
+            // Override the method
+            EmulatorJS.prototype.createBottomMenuBar = function() {
+              // Create the menu object with working methods, but hide the menu bar element
+              const result = originalCreateBottomMenuBar.apply(this, arguments);
+              
+              // Just hide the menu bar element but keep the functionality
+              if (window.EJS_hideMenuBar === true && this.elements.menu) {
+                console.log("Hiding bottom menu bar while preserving button functionality");
+                this.elements.menu.style.display = "none";
+                this.elements.menu.style.visibility = "hidden";
+                this.elements.menu.style.opacity = "0";
+                this.elements.menu.style.pointerEvents = "none";
+              }
+              
+              return result;
+            };
+            
+            // Also override the setVirtualGamepad method to remove fast/slow buttons
+            const originalSetVirtualGamepad = EmulatorJS.prototype.setVirtualGamepad;
+            EmulatorJS.prototype.setVirtualGamepad = function() {
+              // Empty the speedControlButtons definition
+              this.speedControlButtons = [];
+              
+              // Create empty arrays for start/select buttons to prevent them from being added
+              this.startSelectButtons = [];
+              
+              // Get control scheme
+              const scheme = this.getControlScheme();
+              if (!scheme) return;
+              
+              // Create info array for buttons
+              let info = [];
+              
+              // Add only the necessary buttons (no start/select)
+              if (scheme.buttons) {
+                  const buttons = scheme.buttons;
+                  for (const button in buttons) {
+                      // Skip start and select buttons
+                      if (button === 'start' || button === 'select') continue;
+                      
+                      const val = buttons[button];
+                      if (typeof val === 'object') {
+                          info.push({
+                              type: "button",
+                              text: val.text || button,
+                              id: val.id || 'b_' + button,
+                              location: val.location || ['right', '0'],
+                              left: val.left || 'auto',
+                              top: val.top || 'auto',
+                              fontSize: val.fontSize,
+                              block: val.block,
+                              input_value: val.value
+                          });
+                      }
+                  }
+              }
+              
+              // Add dpad if needed
+              if (scheme.dpad) {
+                  info.push({
+                      type: "dpad",
+                      location: scheme.dpad.location || ['left', '0'],
+                      left: scheme.dpad.left || 'auto',
+                      top: scheme.dpad.top || 'auto',
+                      joystickInput: scheme.dpad.joystickInput,
+                      inputValues: scheme.dpad.inputValues
+                  });
+              }
+              
+              // Create the virtual gamepad parent
+              if (!this.virtualGamepad) {
+                  this.virtualGamepad = this.createElement('div');
+                  this.virtualGamepad.classList.add('ejs_virtualGamepad_parent');
+                  this.elements.parent.appendChild(this.virtualGamepad);
+              }
+              
+              // Process the info array
+              for (let i=0; i<info.length; i++) {
+                  const item = info[i];
+                  if (item.type === 'button') {
+                      // Skip start and select buttons
+                      if (item.id === 'b_start' || item.id === 'b_select') continue;
+                      
+                      const button = this.createElement("div");
+                      button.classList.add("ejs_virtualGamepad_button");
+                      button.setAttribute("data-id", item.id);
+                      button.style.position = "absolute";
+                      
+                      if (Array.isArray(item.location)) {
+                          if (item.location[0] === 'right') {
+                              button.style.right = item.location[1]+"px";
+                          } else if (item.location[0] === 'left') {
+                              button.style.left = item.location[1]+"px";
+                          }
+                      }
+                      
+                      if (item.left !== 'auto') button.style.left = item.left+"px";
+                      if (item.top !== 'auto') button.style.top = item.top+"px";
+                      if (item.fontSize) button.style.fontSize = item.fontSize;
+                      if (item.block) button.setAttribute("data-button-block", item.block);
+                      
+                      const span = this.createElement("span");
+                      span.innerText = item.text;
+                      button.appendChild(span);
+                      
+                      this.addEventListener(button, "touchstart touchend touchcancel", (e) => {
+                          e.preventDefault();
+                          if (e.type === 'touchstart') {
+                              this.gameManager.simulateInput(0, item.input_value, 1);
+                          } else {
+                              this.gameManager.simulateInput(0, item.input_value, 0);
+                          }
+                      });
+                      
+                      this.virtualGamepad.appendChild(button);
+                  } else if (item.type === 'dpad') {
+                      // Create D-pad container
+                      const dpadContainer = this.createElement("div");
+                      dpadContainer.style.position = "absolute";
+                      
+                      if (Array.isArray(item.location)) {
+                          if (item.location[0] === 'right') {
+                              dpadContainer.style.right = item.location[1]+"px";
+                          } else if (item.location[0] === 'left') {
+                              dpadContainer.style.left = item.location[1]+"px";
+                          }
+                      }
+                      
+                      if (item.left !== 'auto') dpadContainer.style.left = item.left;
+                      if (item.top !== 'auto') dpadContainer.style.top = item.top;
+                      
+                      // Create D-pad elements
+                      const dpadMain = this.createElement("div");
+                      dpadMain.classList.add("ejs_dpad_main");
+                      
+                      const vertical = this.createElement("div");
+                      vertical.classList.add("ejs_dpad_vertical");
+                      const horizontal = this.createElement("div");
+                      horizontal.classList.add("ejs_dpad_horizontal");
+                      
+                      const bar1 = this.createElement("div");
+                      bar1.classList.add("ejs_dpad_bar");
+                      const bar2 = this.createElement("div");
+                      bar2.classList.add("ejs_dpad_bar");
+                      
+                      horizontal.appendChild(bar1);
+                      vertical.appendChild(bar2);
+                      dpadMain.appendChild(vertical);
+                      dpadMain.appendChild(horizontal);
+                      
+                      // Add touch handlers
+                      const updateDpad = (e) => {
+                          e.preventDefault();
+                          const touch = e.targetTouches[0];
+                          if (!touch) return;
+                          
+                          const rect = dpadMain.getBoundingClientRect();
+                          const x = touch.clientX - rect.left - dpadMain.clientWidth / 2;
+                          const y = touch.clientY - rect.top - dpadMain.clientHeight / 2;
+                          let up = 0, down = 0, left = 0, right = 0;
+                          const angle = Math.atan(x / y) / (Math.PI / 180);
+                          
+                          if (y <= -10) up = 1;
+                          if (y >= 10) down = 1;
+                          
+                          if (x >= 10) {
+                              right = 1;
+                              left = 0;
+                              if (angle < 0 && angle >= -35 || angle > 0 && angle <= 35) {
+                                  right = 0;
+                              }
+                              up = (angle < 0 && angle >= -55 ? 1 : 0);
+                              down = (angle > 0 && angle <= 55 ? 1 : 0);
+                          }
+                          
+                          if (x <= -10) {
+                              right = 0;
+                              left = 1;
+                              if (angle < 0 && angle >= -35 || angle > 0 && angle <= 35) {
+                                  left = 0;
+                              }
+                              up = (angle > 0 && angle <= 55 ? 1 : 0);
+                              down = (angle < 0 && angle >= -55 ? 1 : 0);
+                          }
+                          
+                          dpadMain.classList.toggle("ejs_dpad_up_pressed", up);
+                          dpadMain.classList.toggle("ejs_dpad_down_pressed", down);
+                          dpadMain.classList.toggle("ejs_dpad_right_pressed", right);
+                          dpadMain.classList.toggle("ejs_dpad_left_pressed", left);
+                          
+                          // Simulate input
+                          this.gameManager.simulateInput(0, item.inputValues[0], up);
+                          this.gameManager.simulateInput(0, item.inputValues[1], down);
+                          this.gameManager.simulateInput(0, item.inputValues[2], left);
+                          this.gameManager.simulateInput(0, item.inputValues[3], right);
+                      };
+                      
+                      const cancelDpad = (e) => {
+                          e.preventDefault();
+                          dpadMain.classList.remove("ejs_dpad_up_pressed");
+                          dpadMain.classList.remove("ejs_dpad_down_pressed");
+                          dpadMain.classList.remove("ejs_dpad_right_pressed");
+                          dpadMain.classList.remove("ejs_dpad_left_pressed");
+                          
+                          // Release all directions
+                          this.gameManager.simulateInput(0, item.inputValues[0], 0);
+                          this.gameManager.simulateInput(0, item.inputValues[1], 0);
+                          this.gameManager.simulateInput(0, item.inputValues[2], 0);
+                          this.gameManager.simulateInput(0, item.inputValues[3], 0);
+                      };
+                      
+                      this.addEventListener(dpadMain, 'touchstart touchmove', updateDpad);
+                      this.addEventListener(dpadMain, 'touchend touchcancel', cancelDpad);
+                      
+                      dpadContainer.appendChild(dpadMain);
+                      this.virtualGamepad.appendChild(dpadContainer);
+                  }
+              }
+              
+              // Remove any existing start/select buttons
+              const removeStartSelectButtons = () => {
+                  const buttonsToRemove = document.querySelectorAll('.ejs_virtualGamepad_button[data-btn="start"], .ejs_virtualGamepad_button[data-btn="select"], .ejs_virtualGamepad_button.b_start, .ejs_virtualGamepad_button.b_select');
+                  buttonsToRemove.forEach(btn => {
+                      if (btn.parentNode) {
+                          btn.parentNode.removeChild(btn);
+                      }
+                  });
+              };
+              
+              // Remove immediately and periodically check
+              removeStartSelectButtons();
+              const checkInterval = setInterval(removeStartSelectButtons, 1000);
+              
+              // Store the interval so we can clear it if needed
+              this._startSelectCheckInterval = checkInterval;
+            };
+          }
+        }, 100);
+      `;
+      document.body.appendChild(overrideScript);
+
       // Function to ensure emulator starts properly
       function ensureEmulatorStarts() {
         if (!window.EJS_emulator) return false;
@@ -471,22 +981,13 @@
               // Hide all UI elements
               const uiElementsToHide = [
                 '.ejs_menu_bar',
-                '.ejs_menu_button',
-                '.ejs_menu',
-                '.ejs_menu_wrap',
                 '.ejs_context_menu',
                 '.ejs_context_button',
-                '.ejs_virtualGamepad_parent',
-                '.ejs_touch_overlay',
-                '.ejs_virtual_button',
                 '.ejs_settings_button',
                 '.ejs_settingsMenu',
                 '.ejs_save_button',
                 '.ejs_load_button',
-                '.ejs_fullscreen_button',
-                '.ejs_pause_button',
-                '.ejs_play_button',
-                '.ejs_restart_button'
+                '.ejs_fullscreen_button'
               ];
 
               uiElementsToHide.forEach(selector => {
@@ -498,6 +999,93 @@
                   el.style.visibility = 'hidden';
                 });
               });
+
+              // Also hide the fast/slow buttons specifically
+              const hideSpeedButtons = () => {
+                // Find and hide buttons by ID
+                ['speed_fast', 'speed_slow', 'speed_rewind'].forEach(id => {
+                  const button = document.getElementById(id);
+                  if (button) {
+                    if (button.parentNode) {
+                      button.parentNode.removeChild(button);
+                    } else {
+                      button.style.display = 'none';
+                      button.style.visibility = 'hidden';
+                      button.style.opacity = '0';
+                      button.style.pointerEvents = 'none';
+                    }
+                  }
+                });
+
+                // Find by partial ID match
+                document.querySelectorAll('[id*="speed"]').forEach(el => {
+                  if (el.parentNode) {
+                    el.parentNode.removeChild(el);
+                  } else {
+                    el.style.display = 'none';
+                  }
+                });
+
+                // Also try to find them by their text content
+                document.querySelectorAll('.ejs_virtual_button').forEach(btn => {
+                  const text = (btn.textContent || btn.innerText || '').trim();
+                  if (text === 'Fast' || text === 'Slow' || text === 'Rewind') {
+                    if (btn.parentNode) {
+                      btn.parentNode.removeChild(btn);
+                    } else {
+                      btn.style.display = 'none';
+                      btn.style.visibility = 'hidden';
+                      btn.style.opacity = '0';
+                      btn.style.pointerEvents = 'none';
+                    }
+                  }
+                });
+
+                // Also target by position (based on the known coordinates)
+                document.querySelectorAll('.ejs_virtual_button').forEach(btn => {
+                  const style = btn.getAttribute('style') || '';
+                  if (
+                    (style.includes('left: -35px') && style.includes('top: 50px')) || // Fast
+                    (style.includes('left: 95px') && style.includes('top: 50px')) ||  // Slow
+                    (style.includes('left: 30px') && style.includes('top: 50px'))     // Rewind
+                  ) {
+                    if (btn.parentNode) {
+                      btn.parentNode.removeChild(btn);
+                    } else {
+                      btn.style.display = 'none';
+                    }
+                  }
+                });
+
+                // If emulator is available, try to modify its configuration
+                if (window.EJS_emulator) {
+                  // Try to disable fast/slow features
+                  if (window.EJS_emulator.gameManager) {
+                    // Disable the feature if possible
+                    if (typeof window.EJS_emulator.gameManager.toggleFastForward === 'function') {
+                      window.EJS_emulator.gameManager.toggleFastForward(0);
+                    }
+                    if (typeof window.EJS_emulator.gameManager.toggleSlowMotion === 'function') {
+                      window.EJS_emulator.gameManager.toggleSlowMotion(0);
+                    }
+                  }
+
+                  // If virtualGamepad exists, try to remove speed buttons from it
+                  if (window.EJS_emulator.virtualGamepad) {
+                    const vgp = window.EJS_emulator.virtualGamepad;
+                    const buttons = vgp.querySelectorAll('[id*="speed"]');
+                    buttons.forEach(btn => {
+                      if (btn.parentNode) {
+                        btn.parentNode.removeChild(btn);
+                      }
+                    });
+                  }
+                }
+              };
+
+              // Hide speed buttons now and set up recurring check
+              hideSpeedButtons();
+              const speedButtonInterval = setInterval(hideSpeedButtons, 1000);
 
               // Ensure the canvas takes up full space
               const canvas = document.querySelector('.ejs_canvas');
@@ -555,6 +1143,9 @@
                     el.style.visibility = 'hidden';
                   });
                 });
+
+                // Also check for speed buttons each time the DOM changes
+                hideSpeedButtons();
               });
 
               observer.observe(document.body, { childList: true, subtree: true });
@@ -745,6 +1336,34 @@
       console.log(`⚠️ Failed to initialize GamepadHandler: ${error}`);
     }
 
+    // Function to handle A button press to trigger start button
+    function handleMenuButtonPress() {
+      // Try to find and click the initial start button
+      const startButton = document.querySelector('.ejs_start_button');
+      if (startButton) {
+        console.log('A button pressed - clicking start button');
+        startButton.click();
+        return;
+      }
+
+      // If no start button, try to find and click the play button
+      const playButton = document.querySelector('.ejs_play_button');
+      if (playButton) {
+        console.log('A button pressed - clicking play button');
+        playButton.click();
+        return;
+      }
+
+      // If neither button exists and we have an emulator, simulate start button press
+      if (window.EJS_emulator && window.EJS_emulator.gameManager) {
+        console.log('A button pressed - simulating start button');
+        window.EJS_emulator.gameManager.simulateInput(0, 3, 1); // Press start
+        setTimeout(() => {
+          window.EJS_emulator.gameManager.simulateInput(0, 3, 0); // Release start
+        }, 100);
+      }
+    }
+
     // Listen for gamepad connections
     if (gamepadHandler) {
       gamepadHandler.on('connected', (e) => {
@@ -754,27 +1373,17 @@
 
         // Listen for gamepad button presses
         gamepadHandler.on('buttondown', (e) => {
-          // Button index 0 is typically the 'A' button on most gamepads
-          if (e.index === 0) {
-            const input = document.getElementById('input');
-            if (input) {
-              // If we're on the ROM selection screen, click the input
-              input.click();
-            } else if (window.EJS_emulator && window.EJS_emulator.gameManager) {
-              // Simulate Start+Select button press (9 = Start, 8 = Select)
-              simulateButtonPress([9, 8]);
-            } else {
-              console.error("Input not found and emulator not available");
-            }
+          // Menu button is typically index 12 or 16 on MFi controllers
+          if (e.index === 12 || e.index === 16) {
+            handleMenuButtonPress(); // Reusing the same function but for menu button
           }
 
-          // Button index 1 is typically the 'B' button on most gamepads
+          // Keep existing button mappings
           if (e.index === 1) {
             // Simulate only Start button press (9 = Start)
             simulateButtonPress(9);
           }
 
-          // Button index 2 is typically the 'X' button on most gamepads
           if (e.index === 2) {
             // Simulate only Select button press (8 = Select)
             simulateButtonPress(8);
@@ -782,6 +1391,240 @@
         });
       });
     }
+
+    // Override the setVirtualGamepad method to add A button functionality
+    const overrideScript = document.createElement("script");
+    overrideScript.innerHTML = `
+      // Wait for the emulator to load
+      const waitForEmulator = setInterval(() => {
+        if (window.EmulatorJS) {
+          clearInterval(waitForEmulator);
+          
+          // Store the original method
+          const originalSetVirtualGamepad = EmulatorJS.prototype.setVirtualGamepad;
+          
+          // Override the method
+          EmulatorJS.prototype.setVirtualGamepad = function() {
+            // Empty the speedControlButtons definition
+            this.speedControlButtons = [];
+            
+            // Create empty arrays for start/select buttons to prevent them from being added
+            this.startSelectButtons = [];
+            
+            // Get control scheme
+            const scheme = this.getControlScheme();
+            if (!scheme) return;
+            
+            // Create info array for buttons
+            let info = [];
+            
+            // Add only the necessary buttons (no start/select)
+            if (scheme.buttons) {
+                const buttons = scheme.buttons;
+                for (const button in buttons) {
+                    // Skip start and select buttons
+                    if (button === 'start' || button === 'select') continue;
+                    
+                    const val = buttons[button];
+                    if (typeof val === 'object') {
+                        info.push({
+                            type: "button",
+                            text: val.text || button,
+                            id: val.id || 'b_' + button,
+                            location: val.location || ['right', '0'],
+                            left: val.left || 'auto',
+                            top: val.top || 'auto',
+                            fontSize: val.fontSize,
+                            block: val.block,
+                            input_value: val.value
+                        });
+                    }
+                }
+            }
+            
+            // Add dpad if needed
+            if (scheme.dpad) {
+                info.push({
+                    type: "dpad",
+                    location: scheme.dpad.location || ['left', '0'],
+                    left: scheme.dpad.left || 'auto',
+                    top: scheme.dpad.top || 'auto',
+                    joystickInput: scheme.dpad.joystickInput,
+                    inputValues: scheme.dpad.inputValues
+                });
+            }
+            
+            // Create the virtual gamepad parent
+            if (!this.virtualGamepad) {
+                this.virtualGamepad = this.createElement('div');
+                this.virtualGamepad.classList.add('ejs_virtualGamepad_parent');
+                this.elements.parent.appendChild(this.virtualGamepad);
+            }
+            
+            // Process the info array
+            for (let i=0; i<info.length; i++) {
+                const item = info[i];
+                if (item.type === 'button') {
+                    // Skip start and select buttons
+                    if (item.id === 'b_start' || item.id === 'b_select') continue;
+                    
+                    const button = this.createElement("div");
+                    button.classList.add("ejs_virtualGamepad_button");
+                    button.setAttribute("data-id", item.id);
+                    button.style.position = "absolute";
+                    
+                    if (Array.isArray(item.location)) {
+                        if (item.location[0] === 'right') {
+                            button.style.right = item.location[1]+"px";
+                        } else if (item.location[0] === 'left') {
+                            button.style.left = item.location[1]+"px";
+                        }
+                    }
+                    
+                    if (item.left !== 'auto') button.style.left = item.left+"px";
+                    if (item.top !== 'auto') button.style.top = item.top+"px";
+                    if (item.fontSize) button.style.fontSize = item.fontSize;
+                    if (item.block) button.setAttribute("data-button-block", item.block);
+                    
+                    const span = this.createElement("span");
+                    span.innerText = item.text;
+                    button.appendChild(span);
+                    
+                    this.addEventListener(button, "touchstart touchend touchcancel", (e) => {
+                        e.preventDefault();
+                        if (e.type === 'touchstart') {
+                            this.gameManager.simulateInput(0, item.input_value, 1);
+                        } else {
+                            this.gameManager.simulateInput(0, item.input_value, 0);
+                        }
+                    });
+                    
+                    this.virtualGamepad.appendChild(button);
+                } else if (item.type === 'dpad') {
+                    // Create D-pad container
+                    const dpadContainer = this.createElement("div");
+                    dpadContainer.style.position = "absolute";
+                    
+                    if (Array.isArray(item.location)) {
+                        if (item.location[0] === 'right') {
+                            dpadContainer.style.right = item.location[1]+"px";
+                        } else if (item.location[0] === 'left') {
+                            dpadContainer.style.left = item.location[1]+"px";
+                        }
+                    }
+                    
+                    if (item.left !== 'auto') dpadContainer.style.left = item.left;
+                    if (item.top !== 'auto') dpadContainer.style.top = item.top;
+                    
+                    // Create D-pad elements
+                    const dpadMain = this.createElement("div");
+                    dpadMain.classList.add("ejs_dpad_main");
+                    
+                    const vertical = this.createElement("div");
+                    vertical.classList.add("ejs_dpad_vertical");
+                    const horizontal = this.createElement("div");
+                    horizontal.classList.add("ejs_dpad_horizontal");
+                    
+                    const bar1 = this.createElement("div");
+                    bar1.classList.add("ejs_dpad_bar");
+                    const bar2 = this.createElement("div");
+                    bar2.classList.add("ejs_dpad_bar");
+                    
+                    horizontal.appendChild(bar1);
+                    vertical.appendChild(bar2);
+                    dpadMain.appendChild(vertical);
+                    dpadMain.appendChild(horizontal);
+                    
+                    // Add touch handlers
+                    const updateDpad = (e) => {
+                        e.preventDefault();
+                        const touch = e.targetTouches[0];
+                        if (!touch) return;
+                        
+                        const rect = dpadMain.getBoundingClientRect();
+                        const x = touch.clientX - rect.left - dpadMain.clientWidth / 2;
+                        const y = touch.clientY - rect.top - dpadMain.clientHeight / 2;
+                        let up = 0, down = 0, left = 0, right = 0;
+                        const angle = Math.atan(x / y) / (Math.PI / 180);
+                        
+                        if (y <= -10) up = 1;
+                        if (y >= 10) down = 1;
+                        
+                        if (x >= 10) {
+                            right = 1;
+                            left = 0;
+                            if (angle < 0 && angle >= -35 || angle > 0 && angle <= 35) {
+                                right = 0;
+                            }
+                            up = (angle < 0 && angle >= -55 ? 1 : 0);
+                            down = (angle > 0 && angle <= 55 ? 1 : 0);
+                        }
+                        
+                        if (x <= -10) {
+                            right = 0;
+                            left = 1;
+                            if (angle < 0 && angle >= -35 || angle > 0 && angle <= 35) {
+                                left = 0;
+                            }
+                            up = (angle > 0 && angle <= 55 ? 1 : 0);
+                            down = (angle < 0 && angle >= -55 ? 1 : 0);
+                        }
+                        
+                        dpadMain.classList.toggle("ejs_dpad_up_pressed", up);
+                        dpadMain.classList.toggle("ejs_dpad_down_pressed", down);
+                        dpadMain.classList.toggle("ejs_dpad_right_pressed", right);
+                        dpadMain.classList.toggle("ejs_dpad_left_pressed", left);
+                        
+                        // Simulate input
+                        this.gameManager.simulateInput(0, item.inputValues[0], up);
+                        this.gameManager.simulateInput(0, item.inputValues[1], down);
+                        this.gameManager.simulateInput(0, item.inputValues[2], left);
+                        this.gameManager.simulateInput(0, item.inputValues[3], right);
+                    };
+                    
+                    const cancelDpad = (e) => {
+                        e.preventDefault();
+                        dpadMain.classList.remove("ejs_dpad_up_pressed");
+                        dpadMain.classList.remove("ejs_dpad_down_pressed");
+                        dpadMain.classList.remove("ejs_dpad_right_pressed");
+                        dpadMain.classList.remove("ejs_dpad_left_pressed");
+                        
+                        // Release all directions
+                        this.gameManager.simulateInput(0, item.inputValues[0], 0);
+                        this.gameManager.simulateInput(0, item.inputValues[1], 0);
+                        this.gameManager.simulateInput(0, item.inputValues[2], 0);
+                        this.gameManager.simulateInput(0, item.inputValues[3], 0);
+                    };
+                    
+                    this.addEventListener(dpadMain, 'touchstart touchmove', updateDpad);
+                    this.addEventListener(dpadMain, 'touchend touchcancel', cancelDpad);
+                    
+                    dpadContainer.appendChild(dpadMain);
+                    this.virtualGamepad.appendChild(dpadContainer);
+                }
+            }
+            
+            // Remove any existing start/select buttons
+            const removeStartSelectButtons = () => {
+                const buttonsToRemove = document.querySelectorAll('.ejs_virtualGamepad_button[data-btn="start"], .ejs_virtualGamepad_button[data-btn="select"], .ejs_virtualGamepad_button.b_start, .ejs_virtualGamepad_button.b_select');
+                buttonsToRemove.forEach(btn => {
+                    if (btn.parentNode) {
+                        btn.parentNode.removeChild(btn);
+                    }
+                });
+            };
+            
+            // Remove immediately and periodically check
+            removeStartSelectButtons();
+            const checkInterval = setInterval(removeStartSelectButtons, 1000);
+            
+            // Store the interval so we can clear it if needed
+            this._startSelectCheckInterval = checkInterval;
+          };
+        }
+      }, 100);
+    `;
+    document.body.appendChild(overrideScript);
 
     let enableDebug = false;
     let enableThreads = false;
