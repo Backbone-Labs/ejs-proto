@@ -549,11 +549,11 @@
           existingError.remove();
         }
 
-        // Check if it's a PSP ISO file
-        if (["iso", "cso", "pbp"].includes(ext)) {
-          showError("PSP games are currently not supported in this version. Please try a different ROM type.");
-          return;
-        }
+        // // Check if it's a PSP ISO file
+        // if (["iso", "cso", "pbp"].includes(ext)) {
+        //   showError("PSP games are currently not supported in this version. Please try a different ROM type.");
+        //   return;
+        // }
 
         const core = await determineCore(ext);
         if (!core) {
