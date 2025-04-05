@@ -549,11 +549,11 @@
           existingError.remove();
         }
 
-        // Check if it's a PSP ISO file
-        if (["iso", "cso", "pbp"].includes(ext)) {
-          showError("PSP games are currently not supported in this version. Please try a different ROM type.");
-          return;
-        }
+        // // Check if it's a PSP ISO file
+        // if (["iso", "cso", "pbp"].includes(ext)) {
+        //   showError("PSP games are currently not supported in this version. Please try a different ROM type.");
+        //   return;
+        // }
 
         const core = await determineCore(ext);
         if (!core) {
@@ -1337,12 +1337,12 @@
       console.log(`⚠️ Failed to initialize GamepadHandler: ${error}`);
     }
 
-    // Function to handle A button press to trigger start button
+    // Function to handle Menu button press to trigger start button
     function handleMenuButtonPress() {
       // Try to find and click the initial start button
       const startButton = document.querySelector('.ejs_start_button');
       if (startButton) {
-        console.log('A button pressed - clicking start button');
+        console.log('Menu button pressed - clicking start button');
         startButton.click();
         return;
       }
@@ -1350,18 +1350,35 @@
       // If no start button, try to find and click the play button
       const playButton = document.querySelector('.ejs_play_button');
       if (playButton) {
-        console.log('A button pressed - clicking play button');
+        console.log('Menu button pressed - clicking play button');
         playButton.click();
         return;
       }
 
       // If neither button exists and we have an emulator, simulate start button press
       if (window.EJS_emulator && window.EJS_emulator.gameManager) {
-        console.log('A button pressed - simulating start button');
+        console.log('Menu button pressed - simulating start button');
         window.EJS_emulator.gameManager.simulateInput(0, 3, 1); // Press start
         setTimeout(() => {
           window.EJS_emulator.gameManager.simulateInput(0, 3, 0); // Release start
         }, 100);
+      }
+    }
+
+    // Function to handle Options button press to trigger select button
+    function handleOptionsButtonPress() {
+      // Try to find and click the select button if it exists
+      const selectButton = document.querySelector('.ejs_select_button');
+      if (selectButton) {
+        console.log('Options button pressed - clicking select button');
+        selectButton.click();
+        return;
+      }
+
+      // If no select button exists and we have an emulator, simulate select button press
+      if (window.EJS_emulator && window.EJS_emulator.gameManager) {
+        console.log('Options button pressed - simulating select button');
+        simulateButtonPress(8); // 8 = Select button
       }
     }
 
@@ -1376,7 +1393,12 @@
         gamepadHandler.on('buttondown', (e) => {
           // Menu button is typically index 12 or 16 on MFi controllers
           if (e.index === 12 || e.index === 16) {
-            handleMenuButtonPress(); // Reusing the same function but for menu button
+            handleMenuButtonPress();
+          }
+
+          // Options button (index 9) triggers Select
+          if (e.index === 9) {
+            handleOptionsButtonPress();
           }
 
           // Keep existing button mappings
