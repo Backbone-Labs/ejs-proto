@@ -903,7 +903,7 @@ class EmulatorJS {
     initModule(wasmData, threadData) {
         if (typeof window.EJS_Runtime !== "function") {
             console.warn("EJS_Runtime is not defined!");
-            this.startGameError(this.localization("Failed to start game"));
+            this.startGameError(this.localization("Failed to start game: EJS_Runtime is not defined!"));
             throw new Error("EJS_Runtime is not defined!");
         }
         window.EJS_Runtime({
@@ -944,7 +944,7 @@ class EmulatorJS {
             this.downloadFiles();
         }).catch(e => {
             console.warn(e);
-            this.startGameError(this.localization("Failed to start game"));
+            this.startGameError(this.localization("Failed to start game: " + e.message));
         });
     }
     startGame() {
