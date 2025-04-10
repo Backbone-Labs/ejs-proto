@@ -1391,8 +1391,8 @@
 
         // Listen for gamepad button presses
         gamepadHandler.on('buttondown', (e) => {
-          // Menu button is typically index 12 or 16 on MFi controllers
-          if (e.index === 12 || e.index === 16) {
+          // Menu button is typically index 16 on MFi controllers
+          if (e.index === 16) {
             handleMenuButtonPress();
           }
 
