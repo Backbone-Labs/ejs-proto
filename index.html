@@ -1412,6 +1412,85 @@
             simulateButtonPress(8);
           }
         });
+
+        // Add joystick/analog stick support by handling axis events
+        gamepadHandler.on('axischanged', (e) => {
+          if (!window.EJS_emulator || !window.EJS_emulator.gameManager) return;
+
+          // Get control scheme to determine input values for directions
+          let inputValues = [4, 5, 6, 7]; // Default D-pad input values [UP, DOWN, LEFT, RIGHT]
+          if (window.EJS_emulator.getControlScheme && window.EJS_emulator.getControlScheme().dpad) {
+            inputValues = window.EJS_emulator.getControlScheme().dpad.inputValues || inputValues;
+          }
+
+          // Define a threshold for the analog stick
+          const threshold = 0.5;
+
+          // Handle left analog stick (maps to d-pad)
+          if (e.axis === 'LEFT_STICK_X') {
+            // Right
+            if (e.value > threshold) {
+              window.EJS_emulator.gameManager.simulateInput(0, inputValues[3], 1);
+            }
+            // Left
+            else if (e.value < -threshold) {
+              window.EJS_emulator.gameManager.simulateInput(0, inputValues[2], 1);
+            }
+            // Release both if in the neutral position
+            else {
+              window.EJS_emulator.gameManager.simulateInput(0, inputValues[2], 0);
+              window.EJS_emulator.gameManager.simulateInput(0, inputValues[3], 0);
+            }
+          }
+          else if (e.axis === 'LEFT_STICK_Y') {
+            // Down (Y is positive in this API)
+            if (e.value > threshold) {
+              window.EJS_emulator.gameManager.simulateInput(0, inputValues[1], 1);
+            }
+            // Up (Y is negative in this API)
+            else if (e.value < -threshold) {
+              window.EJS_emulator.gameManager.simulateInput(0, inputValues[0], 1);
+            }
+            // Release both if in the neutral position
+            else {
+              window.EJS_emulator.gameManager.simulateInput(0, inputValues[0], 0);
+              window.EJS_emulator.gameManager.simulateInput(0, inputValues[1], 0);
+            }
+          }
+
+          // You can add right stick support for different functionality
+          // or map it to the same controls as the left stick
+          if (e.axis === 'RIGHT_STICK_X') {
+            // Right
+            if (e.value > threshold) {
+              window.EJS_emulator.gameManager.simulateInput(0, inputValues[3], 1);
+            }
+            // Left
+            else if (e.value < -threshold) {
+              window.EJS_emulator.gameManager.simulateInput(0, inputValues[2], 1);
+            }
+            // Release both if in the neutral position
+            else {
+              window.EJS_emulator.gameManager.simulateInput(0, inputValues[2], 0);
+              window.EJS_emulator.gameManager.simulateInput(0, inputValues[3], 0);
+            }
+          }
+          else if (e.axis === 'RIGHT_STICK_Y') {
+            // Down
+            if (e.value > threshold) {
+              window.EJS_emulator.gameManager.simulateInput(0, inputValues[1], 1);
+            }
+            // Up
+            else if (e.value < -threshold) {
+              window.EJS_emulator.gameManager.simulateInput(0, inputValues[0], 1);
+            }
+            // Release both if in the neutral position
+            else {
+              window.EJS_emulator.gameManager.simulateInput(0, inputValues[0], 0);
+              window.EJS_emulator.gameManager.simulateInput(0, inputValues[1], 0);
+            }
+          }
+        });
       });
     }
 
