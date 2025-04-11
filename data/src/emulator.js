@@ -997,7 +997,7 @@ class EmulatorJS {
             }
         } catch (e) {
             console.warn("Failed to start game", e);
-            this.startGameError(this.localization("Failed to start game"));
+            this.startGameError(this.localization("Failed to start game " + e.message));
             this.callEvent("exit");
             return;
         }
