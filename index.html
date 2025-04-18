@@ -311,7 +311,7 @@
       <p class="flair">
         Loading emulator...
       </p>
-      <!-- <label id="choose-rom-btn" class="choose-rom-btn" for="input">Choose a ROM</label> -->
+      <label id="choose-rom-btn" class="choose-rom-btn" for="input">Choose a ROM</label>
       <input type="file" id="input" />
     </div>
   </div>
@@ -339,9 +339,9 @@
     window.EJS_startOnLoaded = true;
     window.EJS_disableDatabases = true;
 
-    // Disable touch controls by default
-    window.EJS_disableTouchControls = true;
-    window.EJS_VirtualGamepadSettings = false;
+    // Enable touch controls by default
+    window.EJS_disableTouchControls = false;
+    window.EJS_VirtualGamepadSettings = true;
 
     // Hide all UI elements
     window.EJS_hideMenuBar = true; // Hide bottom menu bar
@@ -695,23 +695,6 @@
             // Also override the setVirtualGamepad method to remove fast/slow buttons
             const originalSetVirtualGamepad = EmulatorJS.prototype.setVirtualGamepad;
             EmulatorJS.prototype.setVirtualGamepad = function() {
-              // *** FIX: Ensure required functions are defined before using them ***
-              // This prevents "this.toggleVirtualGamepad is not a function" error
-              // Occurs when an implementation calls methods that exist only after the original is called
-              if (!this.toggleVirtualGamepad) {
-                console.log("Defining missing toggleVirtualGamepad function");
-                this.toggleVirtualGamepad = (show) => {
-                  if (this.virtualGamepad) {
-                    this.virtualGamepad.style.display = show ? "" : "none";
-                  }
-                };
-              }
-              
-              if (!this.toggleVirtualGamepadLeftHanded) {
-                console.log("Defining missing toggleVirtualGamepadLeftHanded function");
-                this.toggleVirtualGamepadLeftHanded = () => {};
-              }
-              
               // Empty the speedControlButtons definition
               this.speedControlButtons = [];
               
@@ -1524,23 +1507,6 @@
           
           // Override the method
           EmulatorJS.prototype.setVirtualGamepad = function() {
-            // *** FIX: Ensure required functions are defined before using them ***
-            // This prevents "this.toggleVirtualGamepad is not a function" error
-            // Occurs when an implementation calls methods that exist only after the original is called
-            if (!this.toggleVirtualGamepad) {
-              console.log("Defining missing toggleVirtualGamepad function");
-              this.toggleVirtualGamepad = (show) => {
-                if (this.virtualGamepad) {
-                  this.virtualGamepad.style.display = show ? "" : "none";
-                }
-              };
-            }
-            
-            if (!this.toggleVirtualGamepadLeftHanded) {
-              console.log("Defining missing toggleVirtualGamepadLeftHanded function");
-              this.toggleVirtualGamepadLeftHanded = () => {};
-            }
-            
             // Empty the speedControlButtons definition
             this.speedControlButtons = [];
             
