@@ -3821,9 +3821,13 @@ class EmulatorJS {
         } else if (option === "disk") {
             this.gameManager.setCurrentDisk(value);
         } else if (option === "virtual-gamepad") {
-            this.toggleVirtualGamepad(value !== "disabled");
-        } else if (option === "virtual-gamepad-left-handed-mode") {
-            this.toggleVirtualGamepadLeftHanded(value !== "disabled");
+            if (this.toggleVirtualGamepad && this.toggleVirtualGamepad !== undefined) {
+                this.toggleVirtualGamepad(value !== "disabled");
+            }
+        } else if (option === "virtual-gamepad-left-handed-mode" && this.toggleVirtualGamepadLeftHanded !== undefined) {
+            if (this.toggleVirtualGamepadLeftHanded && this.toggleVirtualGamepadLeftHanded !== undefined) {
+                this.toggleVirtualGamepadLeftHanded(value !== "disabled");
+            }
         } else if (option === "ff-ratio") {
             if (this.isFastForward) this.gameManager.toggleFastForward(0);
             if (value === "unlimited") {
