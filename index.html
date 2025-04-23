@@ -1415,6 +1415,12 @@
 
         // Add joystick/analog stick support by handling axis events
         gamepadHandler.on('axischanged', (e) => {
+          // Skip custom axis handling for N64 and PS1 since they have native analog support
+          if (window.EJS_core === 'n64' || window.EJS_core === 'psx') {
+            // Let the emulator core handle analog inputs natively
+            return;
+          }
+
           if (!window.EJS_emulator || !window.EJS_emulator.gameManager) return;
 
           // Get control scheme to determine input values for directions
