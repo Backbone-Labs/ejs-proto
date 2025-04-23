@@ -695,6 +695,23 @@
             // Also override the setVirtualGamepad method to remove fast/slow buttons
             const originalSetVirtualGamepad = EmulatorJS.prototype.setVirtualGamepad;
             EmulatorJS.prototype.setVirtualGamepad = function() {
+              // *** FIX: Ensure required functions are defined before using them ***
+              // This prevents "this.toggleVirtualGamepad is not a function" error
+              // Occurs when an implementation calls methods that exist only after the original is called
+              if (!this.toggleVirtualGamepad) {
+                console.log("Defining missing toggleVirtualGamepad function");
+                this.toggleVirtualGamepad = (show) => {
+                  if (this.virtualGamepad) {
+                    this.virtualGamepad.style.display = show ? "" : "none";
+                  }
+                };
+              }
+
+              if (!this.toggleVirtualGamepadLeftHanded) {
+                console.log("Defining missing toggleVirtualGamepadLeftHanded function");
+                this.toggleVirtualGamepadLeftHanded = () => {};
+              }
+                
               // Empty the speedControlButtons definition
               this.speedControlButtons = [];
               
@@ -1513,6 +1530,23 @@
           
           // Override the method
           EmulatorJS.prototype.setVirtualGamepad = function() {
+            // *** FIX: Ensure required functions are defined before using them ***
+            // This prevents "this.toggleVirtualGamepad is not a function" error
+            // Occurs when an implementation calls methods that exist only after the original is called
+            if (!this.toggleVirtualGamepad) {
+              console.log("Defining missing toggleVirtualGamepad function");
+              this.toggleVirtualGamepad = (show) => {
+                if (this.virtualGamepad) {
+                  this.virtualGamepad.style.display = show ? "" : "none";
+                }
+              };
+            }
+
+            if (!this.toggleVirtualGamepadLeftHanded) {
+              console.log("Defining missing toggleVirtualGamepadLeftHanded function");
+              this.toggleVirtualGamepadLeftHanded = () => {};
+            }
+              
             // Empty the speedControlButtons definition
             this.speedControlButtons = [];
             
