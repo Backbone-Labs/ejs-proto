@@ -9,7 +9,7 @@
   "description": "EmulatorJS is a frontend for RetroArch in the web browser.",
   "scripts": {
     "dev": "http-server --config http-server.json",
-    "build": "rm -rf build && mkdir build && cp -r index.html fonts images data build/ && cd build && zip -r ../build/emulator-build.zip .",
+    "build": "rm -rf build && mkdir build && cp -r index.html version.txt fonts images data build/ && cd build && zip -r ../build/emulator-build.zip .",
     "vercel-build": "npm run build"
   },
   "dependencies": {
