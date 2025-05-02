@@ -311,7 +311,7 @@
       <p class="flair">
         Loading emulator...
       </p>
-      <!-- <label id="choose-rom-btn" class="choose-rom-btn" for="input">Choose a ROM</label> -->
+      <label id="choose-rom-btn" class="choose-rom-btn" for="input">Choose a ROM</label>
       <input type="file" id="input" />
     </div>
   </div>
@@ -594,7 +594,8 @@
       if (["ws", "wsc"].includes(ext)) return "ws";
       if (["col", "cv"].includes(ext)) return "coleco";
       if (["d64"].includes(ext)) return "vice_x64sc";
-      if (["bin", "cue", "img", "mdf", "pbp", "cbn", "ccd"].includes(ext)) return "psx";
+      if (["md", "gen", "smd", "bin"].includes(ext)) return "segaMD";
+      // if (["bin", "cue", "img", "mdf", "pbp", "cbn", "ccd"].includes(ext)) return "psx";
       if (["nds", "gba", "gb", "gbc", "z64", "n64"].includes(ext)) return ext;
 
       // Show core selection UI
@@ -1348,6 +1349,153 @@
       }
     }
 
+    // N64 Button/Stick constants for clearer code
+    const N64 = {
+      // Main buttons
+      A: 0,
+      B: 1,
+      START: 3,
+      // D-Pad
+      DPAD_UP: 4,
+      DPAD_DOWN: 5,
+      DPAD_LEFT: 6,
+      DPAD_RIGHT: 7,
+      // Shoulder buttons
+      L: 10,
+      R: 11,
+      Z: 12,
+      // Analog stick
+      STICK_RIGHT: 16,
+      STICK_LEFT: 17,
+      STICK_DOWN: 18,
+      STICK_UP: 19,
+      // C-buttons
+      C_RIGHT: 20,
+      C_LEFT: 21,
+      C_DOWN: 22,
+      C_UP: 23
+    };
+
+    // Function to handle N64 analog stick input (left stick)
+    function handleN64AnalogStick(axis, value) {
+      if (!window.EJS_emulator || !window.EJS_emulator.gameManager) return;
+
+      // Define threshold for small movements
+      const deadzone = 0.1;
+
+      if (Math.abs(value) < deadzone) {
+        // In deadzone, release all directions
+        if (axis === 'LEFT_STICK_X') {
+          window.EJS_emulator.gameManager.simulateInput(0, N64.STICK_RIGHT, 0);
+          window.EJS_emulator.gameManager.simulateInput(0, N64.STICK_LEFT, 0);
+        } else if (axis === 'LEFT_STICK_Y') {
+          window.EJS_emulator.gameManager.simulateInput(0, N64.STICK_UP, 0);
+          window.EJS_emulator.gameManager.simulateInput(0, N64.STICK_DOWN, 0);
+        }
+        return;
+      }
+
+      // Scale the input to match what the emulator expects (0-1)
+      const scaledValue = Math.min(Math.abs(value), 1.0);
+
+      if (axis === 'LEFT_STICK_X') {
+        if (value > 0) {
+          // Right
+          window.EJS_emulator.gameManager.simulateInput(0, N64.STICK_RIGHT, scaledValue);
+          window.EJS_emulator.gameManager.simulateInput(0, N64.STICK_LEFT, 0);
+        } else {
+          // Left
+          window.EJS_emulator.gameManager.simulateInput(0, N64.STICK_LEFT, scaledValue);
+          window.EJS_emulator.gameManager.simulateInput(0, N64.STICK_RIGHT, 0);
+        }
+      } else if (axis === 'LEFT_STICK_Y') {
+        if (value > 0) {
+          // Down (Y is positive in the gamepad API)
+          window.EJS_emulator.gameManager.simulateInput(0, N64.STICK_DOWN, scaledValue);
+          window.EJS_emulator.gameManager.simulateInput(0, N64.STICK_UP, 0);
+        } else {
+          // Up (Y is negative in the gamepad API)
+          window.EJS_emulator.gameManager.simulateInput(0, N64.STICK_UP, scaledValue);
+          window.EJS_emulator.gameManager.simulateInput(0, N64.STICK_DOWN, 0);
+        }
+      }
+    }
+
+    // Function to handle N64 C-buttons input (right stick maps to C-buttons)
+    function handleN64CButtons(axis, value) {
+      if (!window.EJS_emulator || !window.EJS_emulator.gameManager) return;
+
+      // Define threshold for digital button presses
+      const threshold = 0.5;
+
+      if (axis === 'RIGHT_STICK_X') {
+        if (value > threshold) {
+          // C-Right
+          window.EJS_emulator.gameManager.simulateInput(0, N64.C_RIGHT, 1);
+          window.EJS_emulator.gameManager.simulateInput(0, N64.C_LEFT, 0);
+        } else if (value < -threshold) {
+          // C-Left
+          window.EJS_emulator.gameManager.simulateInput(0, N64.C_LEFT, 1);
+          window.EJS_emulator.gameManager.simulateInput(0, N64.C_RIGHT, 0);
+        } else {
+          // Neutral position - release both
+          window.EJS_emulator.gameManager.simulateInput(0, N64.C_RIGHT, 0);
+          window.EJS_emulator.gameManager.simulateInput(0, N64.C_LEFT, 0);
+        }
+      } else if (axis === 'RIGHT_STICK_Y') {
+        if (value < -threshold) {
+          // C-Up (Y is negative in the gamepad API)
+          window.EJS_emulator.gameManager.simulateInput(0, N64.C_UP, 1);
+          window.EJS_emulator.gameManager.simulateInput(0, N64.C_DOWN, 0);
+        } else if (value > threshold) {
+          // C-Down (Y is positive in the gamepad API)
+          window.EJS_emulator.gameManager.simulateInput(0, N64.C_DOWN, 1);
+          window.EJS_emulator.gameManager.simulateInput(0, N64.C_UP, 0);
+        } else {
+          // Neutral position - release both
+          window.EJS_emulator.gameManager.simulateInput(0, N64.C_UP, 0);
+          window.EJS_emulator.gameManager.simulateInput(0, N64.C_DOWN, 0);
+        }
+      }
+    }
+
+    // Functions for other default systems
+    function handleDefaultDpad(axis, value, inputValues) {
+      if (!window.EJS_emulator || !window.EJS_emulator.gameManager) return;
+
+      const threshold = 0.5;
+
+      if (axis === 'LEFT_STICK_X') {
+        if (value > threshold) {
+          // Right
+          window.EJS_emulator.gameManager.simulateInput(0, inputValues[3], 1);
+          window.EJS_emulator.gameManager.simulateInput(0, inputValues[2], 0);
+        } else if (value < -threshold) {
+          // Left
+          window.EJS_emulator.gameManager.simulateInput(0, inputValues[2], 1);
+          window.EJS_emulator.gameManager.simulateInput(0, inputValues[3], 0);
+        } else {
+          // Release both
+          window.EJS_emulator.gameManager.simulateInput(0, inputValues[2], 0);
+          window.EJS_emulator.gameManager.simulateInput(0, inputValues[3], 0);
+        }
+      } else if (axis === 'LEFT_STICK_Y') {
+        if (value > threshold) {
+          // Down (Y is positive)
+          window.EJS_emulator.gameManager.simulateInput(0, inputValues[1], 1);
+          window.EJS_emulator.gameManager.simulateInput(0, inputValues[0], 0);
+        } else if (value < -threshold) {
+          // Up (Y is negative)
+          window.EJS_emulator.gameManager.simulateInput(0, inputValues[0], 1);
+          window.EJS_emulator.gameManager.simulateInput(0, inputValues[1], 0);
+        } else {
+          // Release both
+          window.EJS_emulator.gameManager.simulateInput(0, inputValues[0], 0);
+          window.EJS_emulator.gameManager.simulateInput(0, inputValues[1], 0);
+        }
+      }
+    }
+
     try {
       gamepadHandler = new GamepadHandler();
     } catch (error) {
@@ -1418,26 +1566,100 @@
             handleOptionsButtonPress();
           }
 
-          // Keep existing button mappings
-          if (e.index === 1) {
-            // Simulate only Start button press (9 = Start)
-            simulateButtonPress(9);
+          // N64 specific button remapping
+          if (window.EJS_core === 'n64' && window.EJS_emulator && window.EJS_emulator.gameManager) {
+            // Map specific backbone buttons to N64 controls
+            if (e.index === 0) { // A button -> N64 A
+              simulateButtonPress(N64.A);
+            } else if (e.index === 1) { // B button -> N64 B
+              simulateButtonPress(N64.B);
+            } else if (e.index === 2) { // X button -> N64 C-Up
+              simulateButtonPress(N64.C_UP);
+            } else if (e.index === 3) { // Y button -> N64 C-Left
+              simulateButtonPress(N64.C_LEFT);
+            } else if (e.index === 4) { // L1 button -> N64 L
+              simulateButtonPress(N64.L);
+            } else if (e.index === 5) { // R1 button -> N64 R
+              simulateButtonPress(N64.R);
+            } else if (e.index === 6) { // L2 button -> N64 Z
+              simulateButtonPress(N64.Z);
+            } else if (e.index === 7) { // R2 button -> C-Right
+              simulateButtonPress(N64.C_RIGHT);
+            }
           }
+          // SNES specific button remapping
+          else if (window.EJS_core === 'snes' && window.EJS_emulator && window.EJS_emulator.gameManager) {
+            // Map Backbone buttons to SNES controls
+            if (e.index === 0) { // A button -> SNES A
+              simulateButtonPress(8);
+            } else if (e.index === 1) { // B button -> SNES B
+              simulateButtonPress(0);
+            } else if (e.index === 2) { // X button -> SNES X
+              simulateButtonPress(9);
+            } else if (e.index === 3) { // Y button -> SNES Y
+              simulateButtonPress(1);
+            } else if (e.index === 4) { // L1 button -> SNES L
+              simulateButtonPress(10);
+            } else if (e.index === 5) { // R1 button -> SNES R
+              simulateButtonPress(11);
+            }
+          }
+          // Default button mappings for other systems
+          else {
+            if (e.index === 1) {
+              // Simulate only Start button press (9 = Start)
+              simulateButtonPress(9);
+            }
 
-          if (e.index === 2) {
-            // Simulate only Select button press (8 = Select)
-            simulateButtonPress(8);
+            if (e.index === 2) {
+              // Simulate only Select button press (8 = Select)
+              simulateButtonPress(8);
+            }
+          }
+        });
+
+        // Handle button releases
+        gamepadHandler.on('buttonup', (e) => {
+          // N64 specific button release handling
+          if (window.EJS_core === 'n64' && window.EJS_emulator && window.EJS_emulator.gameManager) {
+            if (e.index === 0) { // A button -> N64 A
+              window.EJS_emulator.gameManager.simulateInput(0, N64.A, 0);
+            } else if (e.index === 1) { // B button -> N64 B
+              window.EJS_emulator.gameManager.simulateInput(0, N64.B, 0);
+            } else if (e.index === 2) { // X button -> N64 C-Up
+              window.EJS_emulator.gameManager.simulateInput(0, N64.C_UP, 0);
+            } else if (e.index === 3) { // Y button -> N64 C-Left
+              window.EJS_emulator.gameManager.simulateInput(0, N64.C_LEFT, 0);
+            } else if (e.index === 4) { // L1 button -> N64 L
+              window.EJS_emulator.gameManager.simulateInput(0, N64.L, 0);
+            } else if (e.index === 5) { // R1 button -> N64 R
+              window.EJS_emulator.gameManager.simulateInput(0, N64.R, 0);
+            } else if (e.index === 6) { // L2 button -> N64 Z
+              window.EJS_emulator.gameManager.simulateInput(0, N64.Z, 0);
+            } else if (e.index === 7) { // R2 button -> C-Right
+              window.EJS_emulator.gameManager.simulateInput(0, N64.C_RIGHT, 0);
+            }
+          }
+          // SNES specific button release handling
+          else if (window.EJS_core === 'snes' && window.EJS_emulator && window.EJS_emulator.gameManager) {
+            if (e.index === 0) { // A button -> SNES A
+              window.EJS_emulator.gameManager.simulateInput(0, 8, 0);
+            } else if (e.index === 1) { // B button -> SNES B
+              window.EJS_emulator.gameManager.simulateInput(0, 0, 0);
+            } else if (e.index === 2) { // X button -> SNES X
+              window.EJS_emulator.gameManager.simulateInput(0, 9, 0);
+            } else if (e.index === 3) { // Y button -> SNES Y
+              window.EJS_emulator.gameManager.simulateInput(0, 1, 0);
+            } else if (e.index === 4) { // L1 button -> SNES L
+              window.EJS_emulator.gameManager.simulateInput(0, 10, 0);
+            } else if (e.index === 5) { // R1 button -> SNES R
+              window.EJS_emulator.gameManager.simulateInput(0, 11, 0);
+            }
           }
         });
 
         // Add joystick/analog stick support by handling axis events
         gamepadHandler.on('axischanged', (e) => {
-          // Skip custom axis handling for N64 and PS1 since they have native analog support
-          if (window.EJS_core === 'n64' || window.EJS_core === 'psx') {
-            // Let the emulator core handle analog inputs natively
-            return;
-          }
-
           if (!window.EJS_emulator || !window.EJS_emulator.gameManager) return;
 
           // Get control scheme to determine input values for directions
@@ -1446,327 +1668,47 @@
             inputValues = window.EJS_emulator.getControlScheme().dpad.inputValues || inputValues;
           }
 
-          // Define a threshold for the analog stick
-          const threshold = 0.5;
-
-          // Handle left analog stick (maps to d-pad)
-          if (e.axis === 'LEFT_STICK_X') {
-            // Right
-            if (e.value > threshold) {
-              window.EJS_emulator.gameManager.simulateInput(0, inputValues[3], 1);
-            }
-            // Left
-            else if (e.value < -threshold) {
-              window.EJS_emulator.gameManager.simulateInput(0, inputValues[2], 1);
-            }
-            // Release both if in the neutral position
-            else {
-              window.EJS_emulator.gameManager.simulateInput(0, inputValues[2], 0);
-              window.EJS_emulator.gameManager.simulateInput(0, inputValues[3], 0);
-            }
-          }
-          else if (e.axis === 'LEFT_STICK_Y') {
-            // Down (Y is positive in this API)
-            if (e.value > threshold) {
-              window.EJS_emulator.gameManager.simulateInput(0, inputValues[1], 1);
-            }
-            // Up (Y is negative in this API)
-            else if (e.value < -threshold) {
-              window.EJS_emulator.gameManager.simulateInput(0, inputValues[0], 1);
-            }
-            // Release both if in the neutral position
-            else {
-              window.EJS_emulator.gameManager.simulateInput(0, inputValues[0], 0);
-              window.EJS_emulator.gameManager.simulateInput(0, inputValues[1], 0);
+          // Special handling for N64
+          if (window.EJS_core === 'n64') {
+            // Make sure joystick movement is significant enough to trigger
+            if (Math.abs(e.value) > 0.1) {
+              if (e.axis === 'LEFT_STICK_X' || e.axis === 'LEFT_STICK_Y') {
+                // Left stick controls main analog stick
+                handleN64AnalogStick(e.axis, e.value);
+              } else if (e.axis === 'RIGHT_STICK_X' || e.axis === 'RIGHT_STICK_Y') {
+                // Right stick controls C-buttons
+                handleN64CButtons(e.axis, e.value);
+              }
+            } else {
+              // Handle joystick returning to center position
+              if (e.axis === 'LEFT_STICK_X') {
+                window.EJS_emulator.gameManager.simulateInput(0, N64.STICK_LEFT, 0);
+                window.EJS_emulator.gameManager.simulateInput(0, N64.STICK_RIGHT, 0);
+              } else if (e.axis === 'LEFT_STICK_Y') {
+                window.EJS_emulator.gameManager.simulateInput(0, N64.STICK_UP, 0);
+                window.EJS_emulator.gameManager.simulateInput(0, N64.STICK_DOWN, 0);
+              } else if (e.axis === 'RIGHT_STICK_X') {
+                window.EJS_emulator.gameManager.simulateInput(0, N64.C_LEFT, 0);
+                window.EJS_emulator.gameManager.simulateInput(0, N64.C_RIGHT, 0);
+              } else if (e.axis === 'RIGHT_STICK_Y') {
+                window.EJS_emulator.gameManager.simulateInput(0, N64.C_UP, 0);
+                window.EJS_emulator.gameManager.simulateInput(0, N64.C_DOWN, 0);
+              }
             }
           }
-
-          // You can add right stick support for different functionality
-          // or map it to the same controls as the left stick
-          if (e.axis === 'RIGHT_STICK_X') {
-            // Right
-            if (e.value > threshold) {
-              window.EJS_emulator.gameManager.simulateInput(0, inputValues[3], 1);
+          // Default handling for other systems
+          else {
+            if (e.axis === 'LEFT_STICK_X' || e.axis === 'LEFT_STICK_Y') {
+              handleDefaultDpad(e.axis, e.value, inputValues);
             }
-            // Left
-            else if (e.value < -threshold) {
-              window.EJS_emulator.gameManager.simulateInput(0, inputValues[2], 1);
-            }
-            // Release both if in the neutral position
-            else {
-              window.EJS_emulator.gameManager.simulateInput(0, inputValues[2], 0);
-              window.EJS_emulator.gameManager.simulateInput(0, inputValues[3], 0);
-            }
-          }
-          else if (e.axis === 'RIGHT_STICK_Y') {
-            // Down
-            if (e.value > threshold) {
-              window.EJS_emulator.gameManager.simulateInput(0, inputValues[1], 1);
-            }
-            // Up
-            else if (e.value < -threshold) {
-              window.EJS_emulator.gameManager.simulateInput(0, inputValues[0], 1);
-            }
-            // Release both if in the neutral position
-            else {
-              window.EJS_emulator.gameManager.simulateInput(0, inputValues[0], 0);
-              window.EJS_emulator.gameManager.simulateInput(0, inputValues[1], 0);
+            // Some systems can use right stick as D-pad too
+            else if (e.axis === 'RIGHT_STICK_X' || e.axis === 'RIGHT_STICK_Y') {
+              handleDefaultDpad(e.axis.replace('RIGHT', 'LEFT'), e.value, inputValues);
             }
           }
         });
       });
     }
-
-    // Override the setVirtualGamepad method to add A button functionality
-    const overrideScript = document.createElement("script");
-    overrideScript.innerHTML = `
-      // Wait for the emulator to load
-      const waitForEmulator = setInterval(() => {
-        if (window.EmulatorJS) {
-          clearInterval(waitForEmulator);
-          
-          // Store the original method
-          const originalSetVirtualGamepad = EmulatorJS.prototype.setVirtualGamepad;
-          
-          // Override the method
-          EmulatorJS.prototype.setVirtualGamepad = function() {
-            // *** FIX: Ensure required functions are defined before using them ***
-            // This prevents "this.toggleVirtualGamepad is not a function" error
-            // Occurs when an implementation calls methods that exist only after the original is called
-            if (!this.toggleVirtualGamepad) {
-              console.log("Defining missing toggleVirtualGamepad function");
-              this.toggleVirtualGamepad = (show) => {
-                if (this.virtualGamepad) {
-                  this.virtualGamepad.style.display = show ? "" : "none";
-                }
-              };
-            }
-
-            if (!this.toggleVirtualGamepadLeftHanded) {
-              console.log("Defining missing toggleVirtualGamepadLeftHanded function");
-              this.toggleVirtualGamepadLeftHanded = () => {};
-            }
-              
-            // Empty the speedControlButtons definition
-            this.speedControlButtons = [];
-            
-            // Create empty arrays for start/select buttons to prevent them from being added
-            this.startSelectButtons = [];
-            
-            // Get control scheme
-            const scheme = this.getControlScheme();
-            if (!scheme) return;
-            
-            // Create info array for buttons
-            let info = [];
-            
-            // Add only the necessary buttons (no start/select)
-            if (scheme.buttons) {
-                const buttons = scheme.buttons;
-                for (const button in buttons) {
-                    // Skip start and select buttons
-                    if (button === 'start' || button === 'select') continue;
-                    
-                    const val = buttons[button];
-                    if (typeof val === 'object') {
-                        info.push({
-                            type: "button",
-                            text: val.text || button,
-                            id: val.id || 'b_' + button,
-                            location: val.location || ['right', '0'],
-                            left: val.left || 'auto',
-                            top: val.top || 'auto',
-                            fontSize: val.fontSize,
-                            block: val.block,
-                            input_value: val.value
-                        });
-                    }
-                }
-            }
-            
-            // Add dpad if needed
-            if (scheme.dpad) {
-                info.push({
-                    type: "dpad",
-                    location: scheme.dpad.location || ['left', '0'],
-                    left: scheme.dpad.left || 'auto',
-                    top: scheme.dpad.top || 'auto',
-                    joystickInput: scheme.dpad.joystickInput,
-                    inputValues: scheme.dpad.inputValues
-                });
-            }
-            
-            // Create the virtual gamepad parent
-            if (!this.virtualGamepad) {
-                this.virtualGamepad = this.createElement('div');
-                this.virtualGamepad.classList.add('ejs_virtualGamepad_parent');
-                this.elements.parent.appendChild(this.virtualGamepad);
-            }
-            
-            // Process the info array
-            for (let i=0; i<info.length; i++) {
-                const item = info[i];
-                if (item.type === 'button') {
-                    // Skip start and select buttons
-                    if (item.id === 'b_start' || item.id === 'b_select') continue;
-                    
-                    const button = this.createElement("div");
-                    button.classList.add("ejs_virtualGamepad_button");
-                    button.setAttribute("data-id", item.id);
-                    button.style.position = "absolute";
-                    
-                    if (Array.isArray(item.location)) {
-                        if (item.location[0] === 'right') {
-                            button.style.right = item.location[1]+"px";
-                        } else if (item.location[0] === 'left') {
-                            button.style.left = item.location[1]+"px";
-                        }
-                    }
-                    
-                    if (item.left !== 'auto') button.style.left = item.left+"px";
-                    if (item.top !== 'auto') button.style.top = item.top+"px";
-                    if (item.fontSize) button.style.fontSize = item.fontSize;
-                    if (item.block) button.setAttribute("data-button-block", item.block);
-                    
-                    const span = this.createElement("span");
-                    span.innerText = item.text;
-                    button.appendChild(span);
-                    
-                    this.addEventListener(button, "touchstart touchend touchcancel", (e) => {
-                        e.preventDefault();
-                        if (e.type === 'touchstart') {
-                            this.gameManager.simulateInput(0, item.input_value, 1);
-                        } else {
-                            this.gameManager.simulateInput(0, item.input_value, 0);
-                        }
-                    });
-                    
-                    this.virtualGamepad.appendChild(button);
-                } else if (item.type === 'dpad') {
-                    // Create D-pad container
-                    const dpadContainer = this.createElement("div");
-                    dpadContainer.style.position = "absolute";
-                    
-                    if (Array.isArray(item.location)) {
-                        if (item.location[0] === 'right') {
-                            dpadContainer.style.right = item.location[1]+"px";
-                        } else if (item.location[0] === 'left') {
-                            dpadContainer.style.left = item.location[1]+"px";
-                        }
-                    }
-                    
-                    if (item.left !== 'auto') dpadContainer.style.left = item.left;
-                    if (item.top !== 'auto') dpadContainer.style.top = item.top;
-                    
-                    // Create D-pad elements
-                    const dpadMain = this.createElement("div");
-                    dpadMain.classList.add("ejs_dpad_main");
-                    
-                    const vertical = this.createElement("div");
-                    vertical.classList.add("ejs_dpad_vertical");
-                    const horizontal = this.createElement("div");
-                    horizontal.classList.add("ejs_dpad_horizontal");
-                    
-                    const bar1 = this.createElement("div");
-                    bar1.classList.add("ejs_dpad_bar");
-                    const bar2 = this.createElement("div");
-                    bar2.classList.add("ejs_dpad_bar");
-                    
-                    horizontal.appendChild(bar1);
-                    vertical.appendChild(bar2);
-                    dpadMain.appendChild(vertical);
-                    dpadMain.appendChild(horizontal);
-                    
-                    // Add touch handlers
-                    const updateDpad = (e) => {
-                        e.preventDefault();
-                        const touch = e.targetTouches[0];
-                        if (!touch) return;
-                        
-                        const rect = dpadMain.getBoundingClientRect();
-                        const x = touch.clientX - rect.left - dpadMain.clientWidth / 2;
-                        const y = touch.clientY - rect.top - dpadMain.clientHeight / 2;
-                        let up = 0, down = 0, left = 0, right = 0;
-                        const angle = Math.atan(x / y) / (Math.PI / 180);
-                        
-                        if (y <= -10) up = 1;
-                        if (y >= 10) down = 1;
-                        
-                        if (x >= 10) {
-                            right = 1;
-                            left = 0;
-                            if (angle < 0 && angle >= -35 || angle > 0 && angle <= 35) {
-                                right = 0;
-                            }
-                            up = (angle < 0 && angle >= -55 ? 1 : 0);
-                            down = (angle > 0 && angle <= 55 ? 1 : 0);
-                        }
-                        
-                        if (x <= -10) {
-                            right = 0;
-                            left = 1;
-                            if (angle < 0 && angle >= -35 || angle > 0 && angle <= 35) {
-                                left = 0;
-                            }
-                            up = (angle > 0 && angle <= 55 ? 1 : 0);
-                            down = (angle < 0 && angle >= -55 ? 1 : 0);
-                        }
-                        
-                        dpadMain.classList.toggle("ejs_dpad_up_pressed", up);
-                        dpadMain.classList.toggle("ejs_dpad_down_pressed", down);
-                        dpadMain.classList.toggle("ejs_dpad_right_pressed", right);
-                        dpadMain.classList.toggle("ejs_dpad_left_pressed", left);
-                        
-                        // Simulate input
-                        this.gameManager.simulateInput(0, item.inputValues[0], up);
-                        this.gameManager.simulateInput(0, item.inputValues[1], down);
-                        this.gameManager.simulateInput(0, item.inputValues[2], left);
-                        this.gameManager.simulateInput(0, item.inputValues[3], right);
-                    };
-                    
-                    const cancelDpad = (e) => {
-                        e.preventDefault();
-                        dpadMain.classList.remove("ejs_dpad_up_pressed");
-                        dpadMain.classList.remove("ejs_dpad_down_pressed");
-                        dpadMain.classList.remove("ejs_dpad_right_pressed");
-                        dpadMain.classList.remove("ejs_dpad_left_pressed");
-                        
-                        // Release all directions
-                        this.gameManager.simulateInput(0, item.inputValues[0], 0);
-                        this.gameManager.simulateInput(0, item.inputValues[1], 0);
-                        this.gameManager.simulateInput(0, item.inputValues[2], 0);
-                        this.gameManager.simulateInput(0, item.inputValues[3], 0);
-                    };
-                    
-                    this.addEventListener(dpadMain, 'touchstart touchmove', updateDpad);
-                    this.addEventListener(dpadMain, 'touchend touchcancel', cancelDpad);
-                    
-                    dpadContainer.appendChild(dpadMain);
-                    this.virtualGamepad.appendChild(dpadContainer);
-                }
-            }
-            
-            // Remove any existing start/select buttons
-            const removeStartSelectButtons = () => {
-                const buttonsToRemove = document.querySelectorAll('.ejs_virtualGamepad_button[data-btn="start"], .ejs_virtualGamepad_button[data-btn="select"], .ejs_virtualGamepad_button.b_start, .ejs_virtualGamepad_button.b_select');
-                buttonsToRemove.forEach(btn => {
-                    if (btn.parentNode) {
-                        btn.parentNode.removeChild(btn);
-                    }
-                });
-            };
-            
-            // Remove immediately and periodically check
-            removeStartSelectButtons();
-            const checkInterval = setInterval(removeStartSelectButtons, 1000);
-            
-            // Store the interval so we can clear it if needed
-            this._startSelectCheckInterval = checkInterval;
-          };
-        }
-      }, 100);
-    `;
-    document.body.appendChild(overrideScript);
 
     let enableDebug = false;
     let enableThreads = false;
