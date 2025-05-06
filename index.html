@@ -311,7 +311,7 @@
       <p class="flair">
         Loading emulator...
       </p>
-      <!-- <label id="choose-rom-btn" class="choose-rom-btn" for="input">Choose a ROM</label> -->
+      <label id="choose-rom-btn" class="choose-rom-btn" for="input">Choose a ROM</label>
       <input type="file" id="input" />
     </div>
   </div>
@@ -536,6 +536,121 @@
 
     // Check for ROM when page loads
     window.addEventListener('load', checkForROM);
+
+    // Auto-resume emulator when focus is regained
+    function setupAutoResume() {
+      // Check for the pause screen and auto-resume emulator
+      const resumeInterval = setInterval(() => {
+        try {
+          // Look for the pause overlay
+          const pauseOverlay = document.querySelector('.ejs_pause_button');
+          const pauseScreen = document.querySelector('.ejs_pause_screen');
+          const messageScreens = document.querySelectorAll('.ejs_message_screen');
+
+          // Auto-click the pause button if visible
+          if (pauseOverlay && window.getComputedStyle(pauseOverlay).display !== 'none') {
+            console.log('Auto-resuming emulator');
+            pauseOverlay.click();
+          }
+
+          // Auto-hide the pause screen
+          if (pauseScreen && window.getComputedStyle(pauseScreen).display !== 'none') {
+            pauseScreen.style.display = 'none';
+            if (window.EJS_emulator && window.EJS_emulator.pause === true) {
+              window.EJS_emulator.pause = false;
+              if (typeof window.EJS_emulator.resetTime === 'function') {
+                window.EJS_emulator.resetTime();
+              }
+            }
+          }
+
+          // Auto-hide any message screens (including "Click to resume")
+          messageScreens.forEach(screen => {
+            if (window.getComputedStyle(screen).display !== 'none') {
+              screen.style.display = 'none';
+              // Click anywhere to resume
+              document.querySelector('.ejs_canvas')?.click();
+            }
+          });
+
+          // Click the resume button if it exists
+          const resumeButton = document.querySelector('.ejs_resume_button');
+          if (resumeButton) {
+            resumeButton.click();
+          }
+        } catch (e) {
+          console.error('Error in auto-resume:', e);
+        }
+      }, 500);
+
+      // Also attach focus/blur event listeners to auto-resume
+      window.addEventListener('focus', () => {
+        // Wait a bit for the focus event to fully process
+        setTimeout(() => {
+          try {
+            // Try different methods to resume the emulator
+            if (window.EJS_emulator) {
+              // Method 1: Try using emulator's internal mechanisms
+              if (window.EJS_emulator.pause === true) {
+                console.log('Auto-resuming on window focus');
+                window.EJS_emulator.pause = false;
+
+                // Click the canvas to ensure input is re-enabled
+                const canvas = document.querySelector('.ejs_canvas');
+                if (canvas) canvas.click();
+              }
+
+              // Method 2: Try using play method if available
+              if (typeof window.EJS_emulator.play === 'function') {
+                window.EJS_emulator.play();
+              }
+            }
+
+            // Method 3: Click on the canvas
+            document.querySelector('.ejs_canvas')?.click();
+          } catch (e) {
+            console.error('Error auto-resuming on focus:', e);
+          }
+        }, 200);
+      });
+
+      // Also use visibility change to detect tab switching
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          setTimeout(() => {
+            try {
+              // Try to resume the emulator
+              if (window.EJS_emulator?.pause === true) {
+                console.log('Auto-resuming on visibility change');
+                window.EJS_emulator.pause = false;
+
+                // Click the canvas to ensure input is re-enabled
+                const canvas = document.querySelector('.ejs_canvas');
+                if (canvas) canvas.click();
+              }
+            } catch (e) {
+              console.error('Error auto-resuming on visibility change:', e);
+            }
+          }, 200);
+        }
+      });
+    }
+
+    // Call the auto-resume setup when the page loads
+    window.addEventListener('load', setupAutoResume);
+
+    // Monitor DOM changes to detect when the emulator creates its elements
+    window.addEventListener('load', () => {
+      const observer = new MutationObserver((mutations) => {
+        if (document.querySelector('.ejs_canvas')) {
+          // Emulator canvas has been created, safe to setup auto-resume
+          setupAutoResume();
+          observer.disconnect();
+        }
+      });
+
+      observer.observe(document.body, { childList: true, subtree: true });
+    });
 
     // Separate the ROM processing logic
     async function processROMFile(file) {
