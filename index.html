@@ -711,7 +711,8 @@
       if (["d64"].includes(ext)) return "vice_x64sc";
       if (["md", "gen", "smd", "bin"].includes(ext)) return "segaMD";
       // if (["bin", "cue", "img", "mdf", "pbp", "cbn", "ccd"].includes(ext)) return "psx";
-      if (["nds", "gba", "gb", "gbc", "z64", "n64"].includes(ext)) return ext;
+      if (ext == "gbc") return "gb";
+      if (["nds", "gba", "gb", "z64", "n64"].includes(ext)) return ext;
 
       // Show core selection UI
       return await showCoreSelection();
