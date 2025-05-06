@@ -311,7 +311,7 @@
       <p class="flair">
         Loading emulator...
       </p>
-      <!-- <label id="choose-rom-btn" class="choose-rom-btn" for="input">Choose a ROM</label> -->
+      <label id="choose-rom-btn" class="choose-rom-btn" for="input">Choose a ROM</label>
       <input type="file" id="input" />
     </div>
   </div>
@@ -734,8 +734,295 @@
       window.EJS_gameUrl = file;
       window.EJS_core = core;
 
+      // Add N64-specific controller configuration before loading emulator
+      if (core === 'n64') {
+        console.log('Setting up N64-specific configuration');
+
+        // Override gamepad input for N64
+        window.EJS_onGamepadConnected = function (gamepad) {
+          console.log('Gamepad connected, applying N64 custom mapping');
+          setupN64ControllerMapping();
+        };
+
+        // Use custom event handler to properly map gamepad buttons
+        window.addEventListener('EJS_DirectGamepadEvent', function (e) {
+          // Only handle N64 core
+          if (window.EJS_core !== 'n64') return;
+
+          const detail = e.detail || {};
+          if (!detail.index && detail.index !== 0) return;
+
+          // Map X button (button 2 in standard mapping) to N64 B button
+          if (detail.index === 2 && detail.mapping === 'standard') {
+            e.preventDefault();
+            e.stopPropagation();
+
+            // Create a new custom event with the correct mapping
+            const newEvent = new CustomEvent('EJS_GamepadEvent', {
+              bubbles: true,
+              detail: {
+                type: detail.type,
+                button: 1, // N64 B button
+                value: detail.value,
+                player: detail.player
+              }
+            });
+
+            document.dispatchEvent(newEvent);
+            return false;
+          }
+
+          // Map A button (button 0 in standard mapping) to N64 A button
+          if (detail.index === 0 && detail.mapping === 'standard') {
+            e.preventDefault();
+            e.stopPropagation();
+
+            // Create a new custom event with the correct mapping
+            const newEvent = new CustomEvent('EJS_GamepadEvent', {
+              bubbles: true,
+              detail: {
+                type: detail.type,
+                button: 0, // N64 A button
+                value: detail.value,
+                player: detail.player
+              }
+            });
+
+            document.dispatchEvent(newEvent);
+            return false;
+          }
+        }, true);
+      }
+
       script.src = "data/loader.js";
       document.body.appendChild(script);
+
+      // Add an N64-specific controller script
+      if (core === 'n64') {
+        const n64ControllerScript = document.createElement('script');
+        n64ControllerScript.textContent = `
+          // Custom N64 controller handler
+          (function() {
+            console.log('Setting up direct N64 controller handler');
+            
+            // Button mapping from standard controller to N64
+            const N64_BUTTON_MAP = {
+              0: 0,  // A button → N64 A button
+              1: 2,  // B button → N64 Z button (common alternative mapping)
+              2: 1,  // X button → N64 B button
+              3: 5,  // Y button → N64 R button (alternative mapping)
+              4: 4,  // Left bumper → N64 L button
+              5: 2,  // Right bumper → N64 Z button
+              6: 4,  // Left trigger → N64 L button
+              7: 5,  // Right trigger → N64 R button
+              8: 3,  // Select/Back button → N64 Start button
+              9: 3,  // Start button → N64 Start button
+              10: 12, // Left stick press → N64 C-Up
+              11: 13, // Right stick press → N64 C-Down
+              // D-pad
+              12: 8,  // D-pad up → N64 D-pad up
+              13: 9,  // D-pad down → N64 D-pad down
+              14: 10, // D-pad left → N64 D-pad left
+              15: 11, // D-pad right → N64 D-pad right
+            };
+            
+            // N64 button constants
+            const N64_BUTTONS = {
+              A: 0,
+              B: 1,
+              Z: 2,
+              START: 3,
+              L: 4,
+              R: 5,
+              UP: 8,
+              DOWN: 9,
+              LEFT: 10,
+              RIGHT: 11,
+              C_UP: 12,
+              C_DOWN: 13,
+              C_LEFT: 14,
+              C_RIGHT: 15
+            };
+            
+            // Store button states to handle changes
+            let buttonStates = {};
+            let lastAxesValues = {};
+            
+            // Helper to simulate N64 button press
+            function simulateN64Button(buttonId, isPressed) {
+              if (!window.EJS_emulator || !window.EJS_emulator.gameManager) return;
+              
+              try {
+                console.log('N64 button ' + buttonId + ' ' + (isPressed ? 'pressed' : 'released'));
+                window.EJS_emulator.gameManager.simulateInput(0, buttonId, isPressed ? 1 : 0);
+              } catch (e) {
+                console.error('Error simulating N64 button:', e);
+              }
+            }
+            
+            // Function to read gamepads and translate inputs to N64
+            function pollGamepads() {
+              if (window.EJS_core !== 'n64') return;
+              if (!window.EJS_emulator || !window.EJS_emulator.gameManager) return;
+              
+              try {
+                const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+                if (!gamepads.length) return;
+                
+                // Use the first connected gamepad
+                let gamepad = null;
+                for (let i = 0; i < gamepads.length; i++) {
+                  if (gamepads[i]) {
+                    gamepad = gamepads[i];
+                    break;
+                  }
+                }
+                
+                if (!gamepad) return;
+                
+                // Process buttons
+                for (let i = 0; i < gamepad.buttons.length; i++) {
+                  const isPressed = gamepad.buttons[i].pressed;
+                  const wasPressed = buttonStates[i] || false;
+                  
+                  // If button state changed
+                  if (isPressed !== wasPressed) {
+                    buttonStates[i] = isPressed;
+                    
+                    // Translate to N64 button using our mapping
+                    const n64Button = N64_BUTTON_MAP[i];
+                    if (n64Button !== undefined) {
+                      simulateN64Button(n64Button, isPressed);
+                    }
+                  }
+                }
+                
+                // Process axes for analog stick and C buttons
+                if (gamepad.axes.length >= 4) {
+                  // Left stick → N64 analog stick (directly pass to emulator)
+                  const leftX = gamepad.axes[0];
+                  const leftY = gamepad.axes[1];
+                  if (Math.abs(leftX) > 0.1 || Math.abs(leftY) > 0.1) {
+                    try {
+                      // Map to N64 range (-80 to 80)
+                      const n64X = Math.round(leftX * 80);
+                      const n64Y = Math.round(leftY * 80);
+                      
+                      // Send analog values if the method exists
+                      if (window.EJS_emulator.gameManager.simulateAnalog) {
+                        window.EJS_emulator.gameManager.simulateAnalog(0, n64X, n64Y);
+                      } else if (window.EJS_emulator.gameManager.simulateAxisInput) {
+                        // First axis is X, second is Y for analog stick
+                        window.EJS_emulator.gameManager.simulateAxisInput(0, 0, leftX);
+                        window.EJS_emulator.gameManager.simulateAxisInput(0, 1, leftY);
+                      }
+                    } catch (e) {
+                      console.error('Error simulating analog stick:', e);
+                    }
+                  }
+                  
+                  // Right stick → C buttons (convert to digital presses)
+                  const rightX = gamepad.axes[2];
+                  const rightY = gamepad.axes[3];
+                  
+                  // Threshold for C button activation
+                  const threshold = 0.5;
+                  
+                  // C-Up (when right stick goes up)
+                  if (rightY < -threshold && !(lastAxesValues.rightY < -threshold)) {
+                    simulateN64Button(N64_BUTTONS.C_UP, true);
+                  } else if (rightY >= -threshold && lastAxesValues.rightY < -threshold) {
+                    simulateN64Button(N64_BUTTONS.C_UP, false);
+                  }
+                  
+                  // C-Down (when right stick goes down)
+                  if (rightY > threshold && !(lastAxesValues.rightY > threshold)) {
+                    simulateN64Button(N64_BUTTONS.C_DOWN, true);
+                  } else if (rightY <= threshold && lastAxesValues.rightY > threshold) {
+                    simulateN64Button(N64_BUTTONS.C_DOWN, false);
+                  }
+                  
+                  // C-Left (when right stick goes left)
+                  if (rightX < -threshold && !(lastAxesValues.rightX < -threshold)) {
+                    simulateN64Button(N64_BUTTONS.C_LEFT, true);
+                  } else if (rightX >= -threshold && lastAxesValues.rightX < -threshold) {
+                    simulateN64Button(N64_BUTTONS.C_LEFT, false);
+                  }
+                  
+                  // C-Right (when right stick goes right)
+                  if (rightX > threshold && !(lastAxesValues.rightX > threshold)) {
+                    simulateN64Button(N64_BUTTONS.C_RIGHT, true);
+                  } else if (rightX <= threshold && lastAxesValues.rightX > threshold) {
+                    simulateN64Button(N64_BUTTONS.C_RIGHT, false);
+                  }
+                  
+                  // Update last axes values
+                  lastAxesValues.rightX = rightX;
+                  lastAxesValues.rightY = rightY;
+                }
+              } catch (e) {
+                console.error('Error in gamepad polling:', e);
+              }
+            }
+            
+            // Create an interval to poll gamepads
+            let pollInterval = null;
+            
+            // Wait for emulator to be ready
+            const waitForEmulator = setInterval(() => {
+              if (window.EJS_emulator && window.EJS_emulator.gameManager) {
+                clearInterval(waitForEmulator);
+                
+                // Start polling gamepads
+                console.log('Starting N64 gamepad polling');
+                pollInterval = setInterval(pollGamepads, 16); // ~60fps
+                
+                // Handle gamepad connections
+                window.addEventListener('gamepadconnected', function(e) {
+                  console.log('Gamepad connected, enabling N64 controller mode');
+                });
+                
+                window.addEventListener('gamepaddisconnected', function(e) {
+                  console.log('Gamepad disconnected');
+                  // Reset button states
+                  buttonStates = {};
+                  lastAxesValues = {};
+                });
+              }
+            }, 1000);
+            
+            // Add function to disable default EJS controls for N64
+            function disableDefaultControls() {
+              // Try different methods to disable default controls
+              if (window.EJS_defaultControls !== null) {
+                window.EJS_defaultControls = null;
+              }
+              
+              // Clear existing gamepad handlers from EJS
+              if (window.EJS_emulator && window.EJS_emulator.gameManager) {
+                try {
+                  // Nullify or replace default handlers
+                  if (window.EJS_emulator.gamepad) {
+                    window.EJS_emulator.gamepad.deadZone = 0.5; // Increase deadzone to prevent phantom inputs
+                  }
+                } catch (e) {
+                  console.error('Error disabling default controls:', e);
+                }
+              }
+            }
+            
+            // Try to disable default controls periodically
+            const disableInterval = setInterval(disableDefaultControls, 2000);
+            
+            // Clean up function
+            window.cleanupN64Controls = function() {
+              if (pollInterval) clearInterval(pollInterval);
+              if (disableInterval) clearInterval(disableInterval);
+            };
+          })();
+        `;
+        document.body.appendChild(n64ControllerScript);
+      }
 
       // Override the createBottomMenuBar method to respect EJS_hideMenuBar setting
       const overrideScript = document.createElement("script");
@@ -1351,6 +1638,120 @@
           clearInterval(checkEmulator);
         }
       }, 100);
+    }
+
+    // N64-specific controller mapping function
+    function setupN64ControllerMapping() {
+      if (window.EJS_core !== 'n64' || !window.EJS_emulator) return;
+
+      console.log('Setting up N64 controller mapping');
+
+      // This function will run once the emulator is fully initialized
+      const waitForEmulatorReady = setInterval(() => {
+        if (!window.EJS_emulator || !window.EJS_emulator.gameManager) return;
+
+        clearInterval(waitForEmulatorReady);
+
+        // Override the key handler for N64
+        const originalKeyHandler = window.EJS_emulator.gameManager.simulateInput;
+        window.EJS_emulator.gameManager.simulateInput = function (player, button, value) {
+          // Remap controller buttons only for N64
+          if (window.EJS_core === 'n64') {
+            // For gamepad input, map the buttons correctly
+            if (button === 2) { // X button on controller
+              button = 1;      // Map to N64 B button
+            }
+            else if (button === 0) { // A button on controller
+              button = 0;      // Map to N64 A button
+            }
+            // Map right bumper to Z
+            else if (button === 5) {
+              button = 2;  // Z button
+            }
+            // Map left trigger to L button
+            else if (button === 6) {
+              button = 4;  // L button
+            }
+            // Map right trigger to R button
+            else if (button === 7) {
+              button = 5;  // R button
+            }
+            // Map right stick as C buttons
+            else if (button === 'r_analog_up') {
+              button = 12; // C-Up
+            }
+            else if (button === 'r_analog_down') {
+              button = 13; // C-Down
+            }
+            else if (button === 'r_analog_left') {
+              button = 14; // C-Left
+            }
+            else if (button === 'r_analog_right') {
+              button = 15; // C-Right
+            }
+          }
+
+          return originalKeyHandler.call(window.EJS_emulator.gameManager, player, button, value);
+        };
+
+        console.log('N64 controller mapping override complete');
+
+        // Patch analog stick handling
+        if (window.EJS_emulator.gameManager.simulateAxisInput) {
+          const originalAxisHandler = window.EJS_emulator.gameManager.simulateAxisInput;
+          window.EJS_emulator.gameManager.simulateAxisInput = function (player, axis, value) {
+            // For N64, ensure proper analog stick mapping:
+            // Left stick -> N64 analog stick
+            // Right stick -> C buttons
+            if (window.EJS_core === 'n64') {
+              if (axis === 2 || axis === 3) { // Right stick (usually axes 2 and 3)
+                // Convert right stick movement to C button presses
+                if (axis === 2) { // Right stick X
+                  if (value > 0.5) {
+                    // Right stick right -> C right
+                    this.simulateInput(player, 15, 1); // C-Right pressed
+                    this.simulateInput(player, 14, 0); // C-Left released
+                  } else if (value < -0.5) {
+                    // Right stick left -> C left
+                    this.simulateInput(player, 14, 1); // C-Left pressed
+                    this.simulateInput(player, 15, 0); // C-Right released
+                  } else {
+                    // Neutral position - release both
+                    this.simulateInput(player, 14, 0); // C-Left released
+                    this.simulateInput(player, 15, 0); // C-Right released
+                  }
+                  return;
+                } else if (axis === 3) { // Right stick Y
+                  if (value > 0.5) {
+                    // Right stick down -> C down
+                    this.simulateInput(player, 13, 1); // C-Down pressed
+                    this.simulateInput(player, 12, 0); // C-Up released
+                  } else if (value < -0.5) {
+                    // Right stick up -> C up
+                    this.simulateInput(player, 12, 1); // C-Up pressed
+                    this.simulateInput(player, 13, 0); // C-Down released
+                  } else {
+                    // Neutral position - release both
+                    this.simulateInput(player, 12, 0); // C-Up released
+                    this.simulateInput(player, 13, 0); // C-Down released
+                  }
+                  return;
+                }
+              }
+            }
+
+            return originalAxisHandler.call(window.EJS_emulator.gameManager, player, axis, value);
+          };
+        }
+      }, 1000);
+
+      // Also add one-time check when gamepad is connected
+      window.addEventListener('gamepadconnected', function (e) {
+        if (window.EJS_core !== 'n64') return;
+        console.log('Gamepad connected, setting up N64 mappings');
+        // Start the check interval if it's not already running
+        setupN64ControllerMapping();
+      });
     }
 
     // Show core selection UI
