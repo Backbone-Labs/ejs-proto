@@ -311,7 +311,7 @@
       <p class="flair">
         Loading emulator...
       </p>
-      <!-- <label id="choose-rom-btn" class="choose-rom-btn" for="input">Choose a ROM</label> -->
+      <label id="choose-rom-btn" class="choose-rom-btn" for="input">Choose a ROM</label>
       <input type="file" id="input" />
     </div>
   </div>
@@ -2139,17 +2139,6 @@
           // Options button (index 9) triggers Select
           if (e.index === 9) {
             handleOptionsButtonPress();
-          }
-
-          // Keep existing button mappings
-          if (e.index === 1) {
-            // Simulate only Start button press (9 = Start)
-            simulateButtonPress(9);
-          }
-
-          if (e.index === 2) {
-            // Simulate only Select button press (8 = Select)
-            simulateButtonPress(8);
           }
         });
 
