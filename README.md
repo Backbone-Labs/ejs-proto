@@ -74,6 +74,37 @@ There are three different version names that you need to be aware of:
 ### CDN
 There is a new CDN that you can use to get any version of the emulator. The cdn is `https://cdn.emulatorjs.org/`. You can use this to get the stable, latest, nightly and any other main version by setting your `EJS_pathtodata` to `https://cdn.emulatorjs.org/<version>/data/`.
 
+### Cloudflare R2 Upload
+This project now supports uploading the build bundle to Cloudflare R2 storage. To use this feature:
+
+1. Create a `.env` file with your Cloudflare R2 credentials for production:
+   ```
+   R2_ACCOUNT_ID=your-account-id
+   R2_ACCESS_KEY_ID=your-access-key-id
+   R2_SECRET_ACCESS_KEY=your-secret-access-key
+   R2_BUCKET_NAME=your-bucket-name
+   R2_PUBLIC_URL=https://your-r2-public-url.example.com  # Optional
+   ```
+   
+2. Available commands:
+   
+   ```bash
+   # Build and upload to R2 using .env (production)
+   npm run build
+   
+   # Build and upload to R2 using .env.local (development)
+   npm run build:local
+   
+   # Build without uploading (Vercel deployments)
+   npm run vercel-build
+   ```
+
+The upload process:
+- Uses multipart streaming upload for reliable handling of large files (250MB+)
+- Shows progress during upload
+- Automatically retries on failures
+- Displays both public and direct R2 URLs when complete
+
 ### Extensions
 
  **[GameLibrary]**
