@@ -1,3 +1,7 @@
 .vercel
 node_modules
 build
+.env
+.env.*
+!.env.sample
+.env*.local
