@@ -1033,12 +1033,15 @@
           (function() {
             console.log('Setting up direct SNES controller handler');
             
-            // Button mapping from standard controller to SNES
-            // Requested mapping:
-            // A → SNES B
-            // X → SNES Y
-            // B → SNES A
-            // Y → SNES X
+            // Button mapping from Backbone Controller to SNES
+            // A → SNES B (index 1)
+            // B → SNES A (index 0)
+            // X → SNES Y (index 3)
+            // Y → SNES X (index 2)
+            // Left bumper → SNES L (index 4)
+            // Right bumper → SNES R (index 5)
+            // Menu (≡) → SNES Start (index 7)
+            // Options (⋮) → SNES Select (index 6)
             const SNES_BUTTON_MAP = {
               0: 1,  // A button → SNES B
               1: 0,  // B button → SNES A
@@ -1046,8 +1049,10 @@
               3: 2,  // Y button → SNES X
               4: 4,  // Left bumper → SNES L
               5: 5,  // Right bumper → SNES R
-              8: 6,  // Select/Back button → SNES Select
-              9: 7,  // Start button → SNES Start
+              // Menu button (often index 16 on MFi controllers)
+              16: 7, // Menu button → SNES Start
+              // Options button (index 9 on many controllers)
+              9: 6,  // Options button → SNES Select
               // D-pad
               12: 8,  // D-pad up → SNES D-pad up
               13: 9,  // D-pad down → SNES D-pad down
@@ -1115,6 +1120,25 @@
                   if (isPressed !== wasPressed) {
                     buttonStates[i] = isPressed;
                     
+                    // Special handling for Menu and Options buttons
+                    if (i === 16 && isPressed) { // Menu button
+                      simulateSNESButton(SNES_BUTTONS.START, true);
+                      // Auto-release after a short delay
+                      setTimeout(() => {
+                        simulateSNESButton(SNES_BUTTONS.START, false);
+                      }, 100);
+                      continue;
+                    }
+                    
+                    if (i === 9 && isPressed) { // Options button
+                      simulateSNESButton(SNES_BUTTONS.SELECT, true);
+                      // Auto-release after a short delay
+                      setTimeout(() => {
+                        simulateSNESButton(SNES_BUTTONS.SELECT, false);
+                      }, 100);
+                      continue;
+                    }
+                    
                     // Translate to SNES button using our mapping
                     const snesButton = SNES_BUTTON_MAP[i];
                     if (snesButton !== undefined) {
@@ -1123,7 +1147,7 @@
                   }
                 }
                 
-                // Process axes for D-pad emulation (if there's no physical D-pad)
+                // Process left analog stick to D-pad mapping
                 if (gamepad.axes.length >= 2) {
                   const leftX = gamepad.axes[0];
                   const leftY = gamepad.axes[1];
@@ -1131,42 +1155,56 @@
                   // Threshold for D-pad activation
                   const threshold = 0.5;
                   
-                  // D-pad Up
-                  if (leftY < -threshold && !buttonStates.dpadUp) {
-                    buttonStates.dpadUp = true;
+                  // Left stick up
+                  if (leftY < -threshold && !buttonStates.leftStickUp) {
+                    buttonStates.leftStickUp = true;
                     simulateSNESButton(SNES_BUTTONS.UP, true);
-                  } else if ((leftY >= -threshold || gamepad.buttons[12].pressed) && buttonStates.dpadUp) {
-                    buttonStates.dpadUp = false;
-                    simulateSNESButton(SNES_BUTTONS.UP, false);
+                  } else if ((leftY >= -threshold) && buttonStates.leftStickUp) {
+                    buttonStates.leftStickUp = false;
+                    // Only release if D-pad up is not pressed
+                    if (!gamepad.buttons[12].pressed) {
+                      simulateSNESButton(SNES_BUTTONS.UP, false);
+                    }
                   }
                   
-                  // D-pad Down
-                  if (leftY > threshold && !buttonStates.dpadDown) {
-                    buttonStates.dpadDown = true;
+                  // Left stick down
+                  if (leftY > threshold && !buttonStates.leftStickDown) {
+                    buttonStates.leftStickDown = true;
                     simulateSNESButton(SNES_BUTTONS.DOWN, true);
-                  } else if ((leftY <= threshold || gamepad.buttons[13].pressed) && buttonStates.dpadDown) {
-                    buttonStates.dpadDown = false;
-                    simulateSNESButton(SNES_BUTTONS.DOWN, false);
+                  } else if ((leftY <= threshold) && buttonStates.leftStickDown) {
+                    buttonStates.leftStickDown = false;
+                    // Only release if D-pad down is not pressed
+                    if (!gamepad.buttons[13].pressed) {
+                      simulateSNESButton(SNES_BUTTONS.DOWN, false);
+                    }
                   }
                   
-                  // D-pad Left
-                  if (leftX < -threshold && !buttonStates.dpadLeft) {
-                    buttonStates.dpadLeft = true;
+                  // Left stick left
+                  if (leftX < -threshold && !buttonStates.leftStickLeft) {
+                    buttonStates.leftStickLeft = true;
                     simulateSNESButton(SNES_BUTTONS.LEFT, true);
-                  } else if ((leftX >= -threshold || gamepad.buttons[14].pressed) && buttonStates.dpadLeft) {
-                    buttonStates.dpadLeft = false;
-                    simulateSNESButton(SNES_BUTTONS.LEFT, false);
+                  } else if ((leftX >= -threshold) && buttonStates.leftStickLeft) {
+                    buttonStates.leftStickLeft = false;
+                    // Only release if D-pad left is not pressed
+                    if (!gamepad.buttons[14].pressed) {
+                      simulateSNESButton(SNES_BUTTONS.LEFT, false);
+                    }
                   }
                   
-                  // D-pad Right
-                  if (leftX > threshold && !buttonStates.dpadRight) {
-                    buttonStates.dpadRight = true;
+                  // Left stick right
+                  if (leftX > threshold && !buttonStates.leftStickRight) {
+                    buttonStates.leftStickRight = true;
                     simulateSNESButton(SNES_BUTTONS.RIGHT, true);
-                  } else if ((leftX <= threshold || gamepad.buttons[15].pressed) && buttonStates.dpadRight) {
-                    buttonStates.dpadRight = false;
-                    simulateSNESButton(SNES_BUTTONS.RIGHT, false);
+                  } else if ((leftX <= threshold) && buttonStates.leftStickRight) {
+                    buttonStates.leftStickRight = false;
+                    // Only release if D-pad right is not pressed
+                    if (!gamepad.buttons[15].pressed) {
+                      simulateSNESButton(SNES_BUTTONS.RIGHT, false);
+                    }
                   }
                 }
+                
+                // Right stick is unmapped as requested
               } catch (e) {
                 console.error('Error in gamepad polling:', e);
               }
@@ -2098,10 +2136,19 @@
       // If neither button exists and we have an emulator, simulate start button press
       if (window.EJS_emulator && window.EJS_emulator.gameManager) {
         console.log('Menu button pressed - simulating start button');
-        window.EJS_emulator.gameManager.simulateInput(0, 3, 1); // Press start
-        setTimeout(() => {
-          window.EJS_emulator.gameManager.simulateInput(0, 3, 0); // Release start
-        }, 100);
+
+        // SNES-specific button handling
+        if (window.EJS_core === 'snes') {
+          window.EJS_emulator.gameManager.simulateInput(0, 7, 1); // Press SNES Start
+          setTimeout(() => {
+            window.EJS_emulator.gameManager.simulateInput(0, 7, 0); // Release SNES Start
+          }, 100);
+        } else {
+          window.EJS_emulator.gameManager.simulateInput(0, 3, 1); // Press start
+          setTimeout(() => {
+            window.EJS_emulator.gameManager.simulateInput(0, 3, 0); // Release start
+          }, 100);
+        }
       }
     }
 
@@ -2118,7 +2165,13 @@
       // If no select button exists and we have an emulator, simulate select button press
       if (window.EJS_emulator && window.EJS_emulator.gameManager) {
         console.log('Options button pressed - simulating select button');
-        simulateButtonPress(8); // 8 = Select button
+
+        // SNES-specific button handling
+        if (window.EJS_core === 'snes') {
+          simulateButtonPress(6); // SNES Select button
+        } else {
+          simulateButtonPress(8); // 8 = Generic Select button
+        }
       }
     }
 
@@ -2140,6 +2193,48 @@
           if (e.index === 9) {
             handleOptionsButtonPress();
           }
+
+          // For SNES games, apply our specific button mapping
+          if (window.EJS_core === 'snes' && window.EJS_emulator && window.EJS_emulator.gameManager) {
+            // A → SNES B (index 1)
+            if (e.index === 0) {
+              window.EJS_emulator.gameManager.simulateInput(0, 1, 1);
+            }
+            // B → SNES A (index 0)
+            else if (e.index === 1) {
+              window.EJS_emulator.gameManager.simulateInput(0, 0, 1);
+            }
+            // X → SNES Y (index 3)
+            else if (e.index === 2) {
+              window.EJS_emulator.gameManager.simulateInput(0, 3, 1);
+            }
+            // Y → SNES X (index 2)
+            else if (e.index === 3) {
+              window.EJS_emulator.gameManager.simulateInput(0, 2, 1);
+            }
+          }
+        });
+
+        // Handle button release for SNES mapping
+        gamepadHandler.on('buttonup', (e) => {
+          if (window.EJS_core === 'snes' && window.EJS_emulator && window.EJS_emulator.gameManager) {
+            // A → SNES B (index 1)
+            if (e.index === 0) {
+              window.EJS_emulator.gameManager.simulateInput(0, 1, 0);
+            }
+            // B → SNES A (index 0)
+            else if (e.index === 1) {
+              window.EJS_emulator.gameManager.simulateInput(0, 0, 0);
+            }
+            // X → SNES Y (index 3)
+            else if (e.index === 2) {
+              window.EJS_emulator.gameManager.simulateInput(0, 3, 0);
+            }
+            // Y → SNES X (index 2)
+            else if (e.index === 3) {
+              window.EJS_emulator.gameManager.simulateInput(0, 2, 0);
+            }
+          }
         });
 
         // Add joystick/analog stick support by handling axis events
@@ -2154,7 +2249,11 @@
 
           // Get control scheme to determine input values for directions
           let inputValues = [4, 5, 6, 7]; // Default D-pad input values [UP, DOWN, LEFT, RIGHT]
-          if (window.EJS_emulator.getControlScheme && window.EJS_emulator.getControlScheme().dpad) {
+
+          // For SNES, use the appropriate D-pad values
+          if (window.EJS_core === 'snes') {
+            inputValues = [8, 9, 10, 11]; // SNES D-pad [UP, DOWN, LEFT, RIGHT]
+          } else if (window.EJS_emulator.getControlScheme && window.EJS_emulator.getControlScheme().dpad) {
             inputValues = window.EJS_emulator.getControlScheme().dpad.inputValues || inputValues;
           }
 
@@ -2193,8 +2292,12 @@
             }
           }
 
-          // You can add right stick support for different functionality
-          // or map it to the same controls as the left stick
+          // Right stick is unmapped for SNES as requested
+          if (window.EJS_core === 'snes') {
+            return;
+          }
+
+          // For other systems, map right stick to the same as left stick
           if (e.axis === 'RIGHT_STICK_X') {
             // Right
             if (e.value > threshold) {
