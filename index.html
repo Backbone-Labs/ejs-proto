@@ -1268,6 +1268,245 @@
         document.body.appendChild(snesControllerScript);
       }
 
+      // Add Gameboy and GBA-specific controller script
+      if (core === 'gb' || core === 'gba') {
+        const gbControllerScript = document.createElement('script');
+        gbControllerScript.textContent = `
+          // Custom Gameboy/GBA controller handler
+          (function() {
+            console.log('Setting up direct ${core === 'gb' ? 'Gameboy' : 'GBA'} controller handler');
+            
+            // Button mapping from Backbone Controller to GB/GBA
+            // A → GB/GBA B (index 0)
+            // B → GB/GBA A (index 8)
+            // X → unmapped
+            // Y → unmapped
+            // Left bumper → ${core === 'gba' ? 'GBA L (index 10)' : 'Unmapped'}
+            // Right bumper → ${core === 'gba' ? 'GBA R (index 11)' : 'Unmapped'}
+            // Menu (≡) → GB/GBA Start (index 3)
+            // Options (⋮) → GB/GBA Select (index 2)
+            const GB_BUTTON_MAP = {
+              0: 0,  // A button → GB/GBA B
+              1: 8,  // B button → GB/GBA A
+              // X and Y are unmapped
+              ${core === 'gba' ? '4: 10,  // Left bumper → GBA L' : '// Left bumper unmapped for GB'}
+              ${core === 'gba' ? '5: 11,  // Right bumper → GBA R' : '// Right bumper unmapped for GB'}
+              // Menu button (often index 16 on MFi controllers)
+              16: 3, // Menu button → GB/GBA Start
+              // Options button (index 9 on many controllers)
+              9: 2,  // Options button → GB/GBA Select
+              // D-pad
+              12: 6,  // D-pad up → GB/GBA D-pad up
+              13: 7,  // D-pad down → GB/GBA D-pad down
+              14: 5,  // D-pad left → GB/GBA D-pad left
+              15: 4,  // D-pad right → GB/GBA D-pad right
+            };
+            
+            // GB/GBA button constants
+            const GB_BUTTONS = {
+              A: 8,
+              B: 0,
+              SELECT: 2,
+              START: 3,
+              RIGHT: 4,
+              LEFT: 5,
+              UP: 6,
+              DOWN: 7,
+              ${core === 'gba' ? 'R: 11,' : ''}
+              ${core === 'gba' ? 'L: 10,' : ''}
+            };
+            
+            // Store button states to handle changes
+            let buttonStates = {};
+            
+            // Helper to simulate GB/GBA button press
+            function simulateGBButton(buttonId, isPressed) {
+              if (!window.EJS_emulator || !window.EJS_emulator.gameManager) return;
+              
+              try {
+                console.log('GB/GBA button ' + buttonId + ' ' + (isPressed ? 'pressed' : 'released'));
+                window.EJS_emulator.gameManager.simulateInput(0, buttonId, isPressed ? 1 : 0);
+              } catch (e) {
+                console.error('Error simulating GB/GBA button:', e);
+              }
+            }
+            
+            // Function to read gamepads and translate inputs to GB/GBA
+            function pollGamepads() {
+              if ((window.EJS_core !== 'gb' && window.EJS_core !== 'gba') || !window.EJS_emulator || !window.EJS_emulator.gameManager) return;
+              
+              try {
+                const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+                if (!gamepads.length) return;
+                
+                // Use the first connected gamepad
+                let gamepad = null;
+                for (let i = 0; i < gamepads.length; i++) {
+                  if (gamepads[i]) {
+                    gamepad = gamepads[i];
+                    break;
+                  }
+                }
+                
+                if (!gamepad) return;
+                
+                // Process buttons
+                for (let i = 0; i < gamepad.buttons.length; i++) {
+                  const isPressed = gamepad.buttons[i].pressed;
+                  const wasPressed = buttonStates[i] || false;
+                  
+                  // If button state changed
+                  if (isPressed !== wasPressed) {
+                    buttonStates[i] = isPressed;
+                    
+                    // Special handling for Menu and Options buttons
+                    if (i === 16 && isPressed) { // Menu button
+                      simulateGBButton(GB_BUTTONS.START, true);
+                      // Auto-release after a short delay
+                      setTimeout(() => {
+                        simulateGBButton(GB_BUTTONS.START, false);
+                      }, 100);
+                      continue;
+                    }
+                    
+                    if (i === 9 && isPressed) { // Options button
+                      simulateGBButton(GB_BUTTONS.SELECT, true);
+                      // Auto-release after a short delay
+                      setTimeout(() => {
+                        simulateGBButton(GB_BUTTONS.SELECT, false);
+                      }, 100);
+                      continue;
+                    }
+                    
+                    // Translate to GB/GBA button using our mapping
+                    const gbButton = GB_BUTTON_MAP[i];
+                    if (gbButton !== undefined) {
+                      simulateGBButton(gbButton, isPressed);
+                    }
+                  }
+                }
+                
+                // Process left analog stick to D-pad mapping
+                if (gamepad.axes.length >= 2) {
+                  const leftX = gamepad.axes[0];
+                  const leftY = gamepad.axes[1];
+                  
+                  // Threshold for D-pad activation
+                  const threshold = 0.5;
+                  
+                  // Left stick up
+                  if (leftY < -threshold && !buttonStates.leftStickUp) {
+                    buttonStates.leftStickUp = true;
+                    simulateGBButton(GB_BUTTONS.UP, true);
+                  } else if ((leftY >= -threshold) && buttonStates.leftStickUp) {
+                    buttonStates.leftStickUp = false;
+                    // Only release if D-pad up is not pressed
+                    if (!gamepad.buttons[12].pressed) {
+                      simulateGBButton(GB_BUTTONS.UP, false);
+                    }
+                  }
+                  
+                  // Left stick down
+                  if (leftY > threshold && !buttonStates.leftStickDown) {
+                    buttonStates.leftStickDown = true;
+                    simulateGBButton(GB_BUTTONS.DOWN, true);
+                  } else if ((leftY <= threshold) && buttonStates.leftStickDown) {
+                    buttonStates.leftStickDown = false;
+                    // Only release if D-pad down is not pressed
+                    if (!gamepad.buttons[13].pressed) {
+                      simulateGBButton(GB_BUTTONS.DOWN, false);
+                    }
+                  }
+                  
+                  // Left stick left
+                  if (leftX < -threshold && !buttonStates.leftStickLeft) {
+                    buttonStates.leftStickLeft = true;
+                    simulateGBButton(GB_BUTTONS.LEFT, true);
+                  } else if ((leftX >= -threshold) && buttonStates.leftStickLeft) {
+                    buttonStates.leftStickLeft = false;
+                    // Only release if D-pad left is not pressed
+                    if (!gamepad.buttons[14].pressed) {
+                      simulateGBButton(GB_BUTTONS.LEFT, false);
+                    }
+                  }
+                  
+                  // Left stick right
+                  if (leftX > threshold && !buttonStates.leftStickRight) {
+                    buttonStates.leftStickRight = true;
+                    simulateGBButton(GB_BUTTONS.RIGHT, true);
+                  } else if ((leftX <= threshold) && buttonStates.leftStickRight) {
+                    buttonStates.leftStickRight = false;
+                    // Only release if D-pad right is not pressed
+                    if (!gamepad.buttons[15].pressed) {
+                      simulateGBButton(GB_BUTTONS.RIGHT, false);
+                    }
+                  }
+                }
+                
+                // Right stick is unmapped as requested
+              } catch (e) {
+                console.error('Error in gamepad polling:', e);
+              }
+            }
+            
+            // Create an interval to poll gamepads
+            let pollInterval = null;
+            
+            // Wait for emulator to be ready
+            const waitForEmulator = setInterval(() => {
+              if (window.EJS_emulator && window.EJS_emulator.gameManager) {
+                clearInterval(waitForEmulator);
+                
+                // Start polling gamepads
+                console.log('Starting GB/GBA gamepad polling');
+                pollInterval = setInterval(pollGamepads, 16); // ~60fps
+                
+                // Handle gamepad connections
+                window.addEventListener('gamepadconnected', function(e) {
+                  console.log('Gamepad connected, enabling GB/GBA controller mode');
+                });
+                
+                window.addEventListener('gamepaddisconnected', function(e) {
+                  console.log('Gamepad disconnected');
+                  // Reset button states
+                  buttonStates = {};
+                });
+              }
+            }, 1000);
+            
+            // Add function to disable default EJS controls
+            function disableDefaultControls() {
+              // Try different methods to disable default controls
+              if (window.EJS_defaultControls !== null) {
+                window.EJS_defaultControls = null;
+              }
+              
+              // Clear existing gamepad handlers from EJS
+              if (window.EJS_emulator && window.EJS_emulator.gameManager) {
+                try {
+                  // Nullify or replace default handlers
+                  if (window.EJS_emulator.gamepad) {
+                    window.EJS_emulator.gamepad.deadZone = 0.5; // Increase deadzone to prevent phantom inputs
+                  }
+                } catch (e) {
+                  console.error('Error disabling default controls:', e);
+                }
+              }
+            }
+            
+            // Try to disable default controls periodically
+            const disableInterval = setInterval(disableDefaultControls, 2000);
+            
+            // Clean up function
+            window.cleanupGBControls = function() {
+              if (pollInterval) clearInterval(pollInterval);
+              if (disableInterval) clearInterval(disableInterval);
+            };
+          })();
+        `;
+        document.body.appendChild(gbControllerScript);
+      }
+
       // Override the createBottomMenuBar method to respect EJS_hideMenuBar setting
       const overrideScript = document.createElement("script");
       overrideScript.innerHTML = `
@@ -2137,16 +2376,21 @@
       if (window.EJS_emulator && window.EJS_emulator.gameManager) {
         console.log('Menu button pressed - simulating start button');
 
-        // SNES-specific button handling
+        // Core-specific button handling
         if (window.EJS_core === 'snes') {
           window.EJS_emulator.gameManager.simulateInput(0, 7, 1); // Press SNES Start
           setTimeout(() => {
             window.EJS_emulator.gameManager.simulateInput(0, 7, 0); // Release SNES Start
           }, 100);
-        } else {
-          window.EJS_emulator.gameManager.simulateInput(0, 3, 1); // Press start
+        } else if (window.EJS_core === 'gb' || window.EJS_core === 'gba') {
+          window.EJS_emulator.gameManager.simulateInput(0, 3, 1); // Press GB/GBA Start
           setTimeout(() => {
-            window.EJS_emulator.gameManager.simulateInput(0, 3, 0); // Release start
+            window.EJS_emulator.gameManager.simulateInput(0, 3, 0); // Release GB/GBA Start
+          }, 100);
+        } else {
+          window.EJS_emulator.gameManager.simulateInput(0, 3, 1); // Press start (generic)
+          setTimeout(() => {
+            window.EJS_emulator.gameManager.simulateInput(0, 3, 0); // Release start (generic)
           }, 100);
         }
       }
@@ -2166,11 +2410,13 @@
       if (window.EJS_emulator && window.EJS_emulator.gameManager) {
         console.log('Options button pressed - simulating select button');
 
-        // SNES-specific button handling
+        // Core-specific button handling
         if (window.EJS_core === 'snes') {
           simulateButtonPress(6); // SNES Select button
+        } else if (window.EJS_core === 'gb' || window.EJS_core === 'gba') {
+          simulateButtonPress(2); // GB/GBA Select button
         } else {
-          simulateButtonPress(8); // 8 = Generic Select button
+          simulateButtonPress(8); // Generic Select button
         }
       }
     }
@@ -2213,9 +2459,34 @@
               window.EJS_emulator.gameManager.simulateInput(0, 2, 1);
             }
           }
+          // For GB/GBA games, apply our specific button mapping
+          else if ((window.EJS_core === 'gb' || window.EJS_core === 'gba') && window.EJS_emulator && window.EJS_emulator.gameManager) {
+            // A → GB/GBA B (index 0)
+            if (e.index === 0) {
+              window.EJS_emulator.gameManager.simulateInput(0, 0, 1);
+            }
+            // B → GB/GBA A (index 8)
+            else if (e.index === 1) {
+              window.EJS_emulator.gameManager.simulateInput(0, 8, 1);
+            }
+            // X and Y are unmapped for GB/GBA
+
+            // For GBA only: L/R buttons
+            if (window.EJS_core === 'gba') {
+              // Left Bumper → GBA L (index 10)
+              if (e.index === 4) {
+                window.EJS_emulator.gameManager.simulateInput(0, 10, 1);
+              }
+              // Right Bumper → GBA R (index 11)
+              else if (e.index === 5) {
+                window.EJS_emulator.gameManager.simulateInput(0, 11, 1);
+              }
+            }
+            // For GB, L/R buttons are unmapped
+          }
         });
 
-        // Handle button release for SNES mapping
+        // Handle button release for specific mappings
         gamepadHandler.on('buttonup', (e) => {
           if (window.EJS_core === 'snes' && window.EJS_emulator && window.EJS_emulator.gameManager) {
             // A → SNES B (index 1)
@@ -2235,6 +2506,31 @@
               window.EJS_emulator.gameManager.simulateInput(0, 2, 0);
             }
           }
+          // For GB/GBA games, release buttons
+          else if ((window.EJS_core === 'gb' || window.EJS_core === 'gba') && window.EJS_emulator && window.EJS_emulator.gameManager) {
+            // A → GB/GBA B (index 0)
+            if (e.index === 0) {
+              window.EJS_emulator.gameManager.simulateInput(0, 0, 0);
+            }
+            // B → GB/GBA A (index 8)
+            else if (e.index === 1) {
+              window.EJS_emulator.gameManager.simulateInput(0, 8, 0);
+            }
+            // X and Y are unmapped for GB/GBA
+
+            // For GBA only: L/R buttons
+            if (window.EJS_core === 'gba') {
+              // Left Bumper → GBA L (index 10)
+              if (e.index === 4) {
+                window.EJS_emulator.gameManager.simulateInput(0, 10, 0);
+              }
+              // Right Bumper → GBA R (index 11)
+              else if (e.index === 5) {
+                window.EJS_emulator.gameManager.simulateInput(0, 11, 0);
+              }
+            }
+            // For GB, L/R buttons are unmapped
+          }
         });
 
         // Add joystick/analog stick support by handling axis events
@@ -2250,9 +2546,11 @@
           // Get control scheme to determine input values for directions
           let inputValues = [4, 5, 6, 7]; // Default D-pad input values [UP, DOWN, LEFT, RIGHT]
 
-          // For SNES, use the appropriate D-pad values
+          // For specific cores, use their appropriate D-pad values
           if (window.EJS_core === 'snes') {
             inputValues = [8, 9, 10, 11]; // SNES D-pad [UP, DOWN, LEFT, RIGHT]
+          } else if (window.EJS_core === 'gb' || window.EJS_core === 'gba') {
+            inputValues = [6, 7, 5, 4]; // GB/GBA D-pad [UP, DOWN, LEFT, RIGHT]
           } else if (window.EJS_emulator.getControlScheme && window.EJS_emulator.getControlScheme().dpad) {
             inputValues = window.EJS_emulator.getControlScheme().dpad.inputValues || inputValues;
           }
@@ -2292,8 +2590,8 @@
             }
           }
 
-          // Right stick is unmapped for SNES as requested
-          if (window.EJS_core === 'snes') {
+          // Right stick is unmapped for SNES and GB/GBA as requested
+          if (window.EJS_core === 'snes' || window.EJS_core === 'gb' || window.EJS_core === 'gba') {
             return;
           }
 
