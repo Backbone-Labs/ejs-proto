@@ -1,0 +1,70 @@
+name: Build emulator cores (asyncify disabled)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout ejs-proto
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            jq wget curl gpg p7zip-full \
+            binutils-mips-linux-gnu build-essential \
+            pkgconf python3 git zip libsdl2-dev
+
+      - name: Set up Emscripten 3.1.74
+        run: |
+          git clone https://github.com/emscripten-core/emsdk.git
+          cd emsdk
+          ./emsdk install 3.1.74
+          ./emsdk activate 3.1.74
+
+      - name: Clone EmulatorJS build repo
+        run: git clone https://github.com/EmulatorJS/build.git ejs-build
+
+      - name: Pre-clone RetroArch and disable asyncify
+        run: |
+          cd ejs-build
+          git clone https://github.com/EmulatorJS/RetroArch.git RetroArch
+          # async=1 is the default in build-emulatorjs.sh — set to 0 to fix iOS 26.2 crash
+          sed -i 's/^  async=1$/  async=0/' RetroArch/emulatorjs/build-emulatorjs.sh
+          # Verify the patch applied
+          grep "async=" RetroArch/emulatorjs/build-emulatorjs.sh
+
+      - name: Build mgba core
+        run: |
+          source emsdk/emsdk_env.sh
+          cd ejs-build
+          bash build.sh -c mgba
+
+      - name: Copy compiled cores into ejs-proto
+        run: |
+          cp ejs-build/EmulatorJS/data/cores/mgba*.data data/cores/
+          echo "Compiled cores:"
+          ls -lh data/cores/mgba*.data
+
+      - name: Bump version
+        run: |
+          OLD=$(cat version.txt)
+          # Increment patch version (e.g. 0.0.4 -> 0.0.5)
+          NEW=$(echo $OLD | awk -F. '{print $1"."$2"."$3+1}')
+          echo $NEW > version.txt
+          echo "Bumped version: $OLD -> $NEW"
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/cores/mgba*.data version.txt
+          git diff --staged --quiet && echo "No changes to commit" && exit 0
+          git commit -m "build: rebuild mgba core with asyncify disabled for iOS 26.2 fix"
+          git push
