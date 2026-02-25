@@ -44,7 +44,7 @@ jobs:
         run: |
           source emsdk/emsdk_env.sh
           cd ejs-build
-          bash build.sh -c mgba
+          bash build.sh -c=mgba
 
       - name: Copy compiled cores into ejs-proto
         run: |
