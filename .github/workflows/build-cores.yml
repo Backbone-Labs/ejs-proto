@@ -46,10 +46,18 @@ jobs:
           cd ejs-build
           bash build.sh -c=mgba
 
-      - name: Copy compiled cores into ejs-proto
+      - name: Find and copy compiled cores into ejs-proto
         run: |
-          cp ejs-build/EmulatorJS/data/cores/mgba*.data data/cores/
-          echo "Compiled cores:"
+          echo "Searching for compiled mgba cores..."
+          find . -name "mgba*.data" -not -path "./data/cores/*" 2>/dev/null
+          CORES=$(find . -name "mgba*.data" -not -path "./data/cores/*")
+          if [ -z "$CORES" ]; then
+            echo "No mgba .data files found — listing ejs-build output dirs for debugging:"
+            find ejs-build -type d | head -30
+            exit 1
+          fi
+          echo "$CORES" | xargs -I{} cp {} data/cores/
+          echo "Copied cores:"
           ls -lh data/cores/mgba*.data
 
       - name: Bump version
