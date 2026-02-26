@@ -795,6 +795,23 @@
         }, true);
       }
 
+      // Relay WASM abort and unhandled JS errors to native iOS for logging
+      window.Module = window.Module || {};
+      window.Module.onAbort = function(reason) {
+        try {
+          if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.emulatorCrash) {
+            window.webkit.messageHandlers.emulatorCrash.postMessage({ type: 'abort', reason: String(reason) });
+          }
+        } catch(e) {}
+      };
+      window.addEventListener('unhandledrejection', function(e) {
+        try {
+          if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.emulatorCrash) {
+            window.webkit.messageHandlers.emulatorCrash.postMessage({ type: 'unhandledrejection', reason: String(e.reason) });
+          }
+        } catch(err) {}
+      });
+
       script.src = "data/loader.js";
       document.body.appendChild(script);
 
