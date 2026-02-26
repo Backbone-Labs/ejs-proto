@@ -31,14 +31,27 @@ jobs:
       - name: Clone EmulatorJS build repo
         run: git clone https://github.com/EmulatorJS/build.git ejs-build
 
-      - name: Pre-clone RetroArch and disable asyncify
+      - name: Pre-clone RetroArch and patch for iOS 26.2
         run: |
           cd ejs-build
           git clone https://github.com/EmulatorJS/RetroArch.git RetroArch
-          # async=1 is the default in build-emulatorjs.sh — set to 0 to fix iOS 26.2 crash
+
+          # 1. Disable asyncify (iOS 26.2 WebKit regression)
           sed -i 's/^  async=1$/  async=0/' RetroArch/emulatorjs/build-emulatorjs.sh
-          # Verify the patch applied
+
+          # 2. Add mgba to largeHeap so INITIAL_MEMORY = 512MB instead of 128MB
+          sed -i 's/largeHeap=(\(.*\))/largeHeap=(\1 "mgba")/' RetroArch/emulatorjs/build-emulatorjs.sh
+
+          # 3. Disable memory growth — ALLOW_MEMORY_GROWTH=1 is hardcoded in Makefile.emulatorjs
+          sed -i 's/-s ALLOW_MEMORY_GROWTH=1/-s ALLOW_MEMORY_GROWTH=0/' RetroArch/Makefile.emulatorjs
+
+          # Verify all patches applied
+          echo "--- async ---"
           grep "async=" RetroArch/emulatorjs/build-emulatorjs.sh
+          echo "--- largeHeap ---"
+          grep "largeHeap=" RetroArch/emulatorjs/build-emulatorjs.sh
+          echo "--- ALLOW_MEMORY_GROWTH ---"
+          grep "ALLOW_MEMORY_GROWTH" RetroArch/Makefile.emulatorjs
 
       - name: Build mgba core
         run: |
@@ -74,5 +87,5 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/cores/mgba*.data version.txt
           git diff --staged --quiet && echo "No changes to commit" && exit 0
-          git commit -m "build: rebuild mgba core with asyncify disabled for iOS 26.2 fix"
+          git commit -m "build: rebuild mgba core with asyncify disabled, 512MB fixed heap for iOS 26.2 fix"
           git push
