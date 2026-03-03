@@ -125,6 +125,31 @@ async function uploadZipToR2() {
 
     console.log("✅ Upload successful!");
 
+    // Purge Cloudflare CDN cache so devices get the new build immediately
+    if (process.env.CF_ZONE_ID && process.env.CF_API_TOKEN) {
+      const purgeUrl = `${process.env.R2_PUBLIC_URL}/${fileName}`;
+      console.log(`\n🔄 Purging Cloudflare cache for: ${purgeUrl}`);
+      const purgeRes = await fetch(
+        `https://api.cloudflare.com/client/v4/zones/${process.env.CF_ZONE_ID}/purge_cache`,
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${process.env.CF_API_TOKEN}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ files: [purgeUrl] }),
+        }
+      );
+      const purgeData = await purgeRes.json();
+      if (purgeData.success) {
+        console.log("✅ Cloudflare cache purged successfully!");
+      } else {
+        console.error("❌ Cloudflare cache purge failed:", JSON.stringify(purgeData.errors));
+      }
+    } else {
+      console.warn("⚠️  CF_ZONE_ID or CF_API_TOKEN not set — skipping Cloudflare cache purge");
+    }
+
     // Log the URL in a more prominent way
     const directR2Url = `https://${process.env.R2_BUCKET_NAME}.${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${fileName}`;
 
