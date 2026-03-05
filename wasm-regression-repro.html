@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>iOS 26.2 WebKit WASM Regression Repro</title>
+  <style>
+    body {
+      font-family: -apple-system, sans-serif;
+      max-width: 680px;
+      margin: 24px auto;
+      padding: 0 16px;
+      background: #111;
+      color: #ddd;
+    }
+    h1 { font-size: 1.15em; color: #fff; margin-bottom: 4px; }
+    .subtitle { font-size: 0.8em; color: #888; margin-bottom: 20px; }
+    .subtitle a { color: #64b5f6; }
+    h2 { font-size: 0.9em; color: #bbb; margin: 20px 0 4px; }
+    p.desc { font-size: 0.8em; color: #777; margin: 0 0 6px; }
+    .row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 4px;
+      font-size: 0.78em;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .pending  { background:#222; color:#888; }
+    .running  { background:#332200; color:#ffb300; }
+    .pass     { background:#0a2a0a; color:#66bb6a; }
+    .fail     { background:#2a0a0a; color:#ef5350; }
+    #log {
+      margin-top: 16px;
+      border: 1px solid #2a2a2a;
+      border-radius: 6px;
+      padding: 10px;
+      height: 280px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 0.75em;
+    }
+    .l { margin: 1px 0; }
+    .l-info { color: #888; }
+    .l-ok   { color: #66bb6a; }
+    .l-fail { color: #ef5350; }
+    .l-warn { color: #ffb300; }
+    #meta { font-size: 0.7em; color: #555; margin-bottom: 18px; word-break: break-all; }
+  </style>
+</head>
+<body>
+
+<h1>WebKit WASM Regression Repro</h1>
+<div class="subtitle">
+  iOS 26.2 WebKit regression: <code>memory.grow</code> / large heap / Asyncify crash in WKWebView.<br>
+  Reference: <a href="https://github.com/EmulatorJS/EmulatorJS/issues/1143">EmulatorJS/EmulatorJS#1143</a>
+  — no ROM or third-party code required.
+</div>
+
+<div id="meta"></div>
+
+<!-- Test 1 -->
+<div class="row">
+  <h2 style="margin:0">Test 1 — <code>memory.grow</code> via WASM module</h2>
+  <span id="b1" class="badge pending">Pending</span>
+</div>
+<p class="desc">
+  Instantiates a minimal WASM module (no Emscripten, no ROM) with <code>memory(min=2, max=32768)</code>
+  and calls the exported <code>grow(1)</code> function 4096 times to reach 256 MB.
+  Mirrors Emscripten's <code>ALLOW_MEMORY_GROWTH=1</code> path.
+  After each grow, writes a sentinel value into the new page and reads it back to
+  verify the grown memory is actually accessible.
+</p>
+
+<!-- Test 2 -->
+<div class="row">
+  <h2 style="margin:0">Test 2 — 512 MB fixed initial allocation</h2>
+  <span id="b2" class="badge pending">Pending</span>
+</div>
+<p class="desc">
+  Creates <code>new WebAssembly.Memory({ initial: 8192, maximum: 8192 })</code> (8192 pages = 512 MB).
+  Matches Emscripten's <code>INITIAL_MEMORY=536870912</code> + <code>ALLOW_MEMORY_GROWTH=0</code> fixed heap.
+  Tests whether WKWebView allows large static WASM heaps at instantiation time.
+</p>
+
+<!-- Test 3 -->
+<div class="row">
+  <h2 style="margin:0">Test 3 — <code>WebAssembly.Memory.grow()</code> JS API</h2>
+  <span id="b3" class="badge pending">Pending</span>
+</div>
+<p class="desc">
+  Same incremental growth as Test 1 but driven entirely from JS via
+  <code>WebAssembly.Memory.grow()</code> rather than from within a WASM module.
+  Isolates whether the regression is in WASM execution or in the JS Memory API itself.
+</p>
+
+<div id="log"></div>
+
+<script>
+  // ── Metadata ─────────────────────────────────────────────────────────────
+  document.getElementById('meta').textContent =
+    'UA: ' + navigator.userAgent + '  |  ' + new Date().toISOString();
+
+  // ── Logging helpers ───────────────────────────────────────────────────────
+  function log(msg, cls) {
+    const el = document.createElement('div');
+    el.className = 'l ' + (cls || 'l-info');
+    el.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+    const box = document.getElementById('log');
+    box.appendChild(el);
+    box.scrollTop = box.scrollHeight;
+  }
+  function badge(id, text, cls) {
+    const el = document.getElementById(id);
+    el.textContent = text;
+    el.className = 'badge ' + cls;
+  }
+  function yield_() { return new Promise(r => setTimeout(r, 0)); }
+
+  // ── WASM binary ───────────────────────────────────────────────────────────
+  // Equivalent WAT (hand-assembled, no Emscripten required):
+  //
+  //   (module
+  //     (memory (export "mem") 2 32768)   ;; min 2 pages, max 32768 pages (2 GB)
+  //     (func (export "grow") (param i32) (result i32)
+  //       local.get 0
+  //       memory.grow))
+  //
+  // Section layout:
+  //   magic+version | type | function | memory | export | code
+  const wasmBytes = new Uint8Array([
+    // magic + version
+    0x00, 0x61, 0x73, 0x6d,  0x01, 0x00, 0x00, 0x00,
+    // type section (id=1, size=6): func(i32)->i32
+    0x01, 0x06,  0x01, 0x60, 0x01, 0x7f, 0x01, 0x7f,
+    // function section (id=3, size=2): 1 function, type 0
+    0x03, 0x02,  0x01, 0x00,
+    // memory section (id=5, size=6): 1 memory, limits with max, min=2, max=32768
+    //   32768 in LEB128 = 0x80 0x80 0x02
+    0x05, 0x06,  0x01, 0x01, 0x02, 0x80, 0x80, 0x02,
+    // export section (id=7, size=14): 2 exports
+    0x07, 0x0e,  0x02,
+      0x03, 0x6d, 0x65, 0x6d, 0x02, 0x00,        // "mem"  memory[0]
+      0x04, 0x67, 0x72, 0x6f, 0x77, 0x00, 0x00,   // "grow" func[0]
+    // code section (id=10, size=8): 1 body, 6 bytes, no locals
+    //   local.get 0 (0x20 0x00) | memory.grow 0 (0x40 0x00) | end (0x0b)
+    0x0a, 0x08,  0x01, 0x06, 0x00, 0x20, 0x00, 0x40, 0x00, 0x0b,
+  ]);
+
+  // ── Test 1: incremental grow via WASM module ───────────────────────────────
+  async function test1() {
+    badge('b1', 'Running…', 'running');
+    try {
+      const { instance } = await WebAssembly.instantiate(wasmBytes);
+      const { grow, mem } = instance.exports;
+
+      log('T1: WASM instantiated — initial memory: ' +
+          (mem.buffer.byteLength / 1024) + ' KB');
+
+      const TARGET_PAGES = 4096; // 256 MB
+      const SENTINEL     = 0xdeadbeef | 0;
+
+      for (let i = 0; i < TARGET_PAGES; i++) {
+        const prev = grow(1); // returns previous page count, or -1 on failure
+        if (prev === -1) {
+          log('T1 FAIL: memory.grow returned -1 at step ' + (i + 1) +
+              ' (' + (i * 64) + ' KB grown so far)', 'l-fail');
+          badge('b1', 'FAIL — grow returned -1 at step ' + (i + 1), 'fail');
+          return;
+        }
+
+        // Write sentinel into the first word of the newly grown page
+        // to verify the grown pages are actually writable/readable.
+        const byteOffset = prev * 65536; // start of the new page
+        const view = new Int32Array(mem.buffer);
+        view[byteOffset >> 2] = SENTINEL;
+        const readback = view[byteOffset >> 2];
+        if (readback !== SENTINEL) {
+          log('T1 FAIL: grown page ' + (i + 1) + ' not accessible — ' +
+              'wrote 0xdeadbeef, read back 0x' + (readback >>> 0).toString(16), 'l-fail');
+          badge('b1', 'FAIL — grown page not accessible', 'fail');
+          return;
+        }
+
+        if ((i + 1) % 512 === 0) {
+          const mb = ((prev + 1) * 65536 / (1024 * 1024)).toFixed(0);
+          log('T1: reached ' + mb + ' MB…', 'l-info');
+          await yield_();
+        }
+      }
+
+      const finalMB = (TARGET_PAGES * 65536 / (1024 * 1024)).toFixed(0);
+      log('T1 PASS: grew to ' + finalMB + ' MB, all pages writable', 'l-ok');
+      badge('b1', 'PASS (' + finalMB + ' MB)', 'pass');
+    } catch (e) {
+      log('T1 EXCEPTION: ' + e, 'l-fail');
+      badge('b1', 'FAIL — ' + e.name, 'fail');
+    }
+  }
+
+  // ── Test 2: large fixed initial allocation ──────────────────────────────────
+  async function test2() {
+    badge('b2', 'Running…', 'running');
+    const PAGES = 8192; // 512 MB
+    try {
+      log('T2: allocating WebAssembly.Memory — ' + PAGES + ' pages (' +
+          (PAGES * 64 / 1024) + ' MB) …');
+      const mem = new WebAssembly.Memory({ initial: PAGES, maximum: PAGES });
+      const mb  = (mem.buffer.byteLength / (1024 * 1024)).toFixed(0);
+
+      // Spot-check a few addresses across the allocation
+      const view = new Int32Array(mem.buffer);
+      const checkOffsets = [0, (PAGES / 4) * 16384, (PAGES / 2) * 16384, (PAGES - 1) * 16384];
+      for (const off of checkOffsets) {
+        view[off >> 2] = 0x1234;
+        if (view[off >> 2] !== 0x1234) {
+          log('T2 FAIL: memory allocated but write at offset ' + off + ' failed', 'l-fail');
+          badge('b2', 'FAIL — memory not writable at offset ' + off, 'fail');
+          return;
+        }
+      }
+
+      log('T2 PASS: ' + mb + ' MB allocated and spot-checks passed', 'l-ok');
+      badge('b2', 'PASS (' + mb + ' MB)', 'pass');
+    } catch (e) {
+      log('T2 FAIL: ' + e, 'l-fail');
+      badge('b2', 'FAIL — ' + e.name, 'fail');
+    }
+  }
+
+  // ── Test 3: JS Memory API growth ─────────────────────────────────────────────
+  async function test3() {
+    badge('b3', 'Running…', 'running');
+    try {
+      const mem = new WebAssembly.Memory({ initial: 2, maximum: 32768 });
+      log('T3: WebAssembly.Memory created — ' +
+          (mem.buffer.byteLength / 1024) + ' KB initial');
+
+      const TARGET_PAGES = 4096;
+      for (let i = 0; i < TARGET_PAGES; i++) {
+        try {
+          mem.grow(1);
+        } catch (e) {
+          log('T3 FAIL: mem.grow() threw at step ' + (i + 1) + ': ' + e, 'l-fail');
+          badge('b3', 'FAIL — threw at step ' + (i + 1), 'fail');
+          return;
+        }
+        if ((i + 1) % 512 === 0) {
+          const mb = (mem.buffer.byteLength / (1024 * 1024)).toFixed(0);
+          log('T3: reached ' + mb + ' MB…', 'l-info');
+          await yield_();
+        }
+      }
+
+      const mb = (mem.buffer.byteLength / (1024 * 1024)).toFixed(0);
+      log('T3 PASS: grew to ' + mb + ' MB via JS API', 'l-ok');
+      badge('b3', 'PASS (' + mb + ' MB)', 'pass');
+    } catch (e) {
+      log('T3 EXCEPTION: ' + e, 'l-fail');
+      badge('b3', 'FAIL — ' + e.name, 'fail');
+    }
+  }
+
+  // ── Run ───────────────────────────────────────────────────────────────────────
+  (async () => {
+    log('WebAssembly supported: ' + (typeof WebAssembly !== 'undefined'));
+    await test1();
+    await test2();
+    await test3();
+    log('All tests complete.');
+  })();
+</script>
+</body>
+</html>
