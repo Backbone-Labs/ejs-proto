@@ -339,6 +339,10 @@
     window.EJS_startOnLoaded = true;
     window.EJS_disableDatabases = true;
 
+    // Signal iOS native layer the moment EmulatorJS is fully ready
+    // (fires after WASM compiled + game started — more reliable than polling gameManager)
+    window.EJS_ready = function() { window.__ejsReady = true; };
+
     // Enable touch controls by default
     window.EJS_disableTouchControls = false;
     window.EJS_VirtualGamepadSettings = true;
