@@ -68,113 +68,75 @@ const r2Client = new S3Client({
   maxAttempts: 3,
 });
 
+// Read version from version.txt (if present)
+let buildVersion = null;
+const versionFile = path.join(path.dirname(zipFilePath), "..", "version.txt");
+if (fs.existsSync(versionFile)) {
+  buildVersion = fs.readFileSync(versionFile, "utf-8").trim();
+  console.log(`📌 Build version: ${buildVersion}`);
+}
+
 // Upload the zip file to R2 using multipart streaming upload
+async function uploadToR2(uploadFileName) {
+  const fileStream = fs.createReadStream(zipFilePath);
+  const upload = new Upload({
+    client: r2Client,
+    params: {
+      Bucket: process.env.R2_BUCKET_NAME,
+      Key: uploadFileName,
+      Body: fileStream,
+      ContentType: "application/zip",
+      ContentDisposition: `attachment; filename=${uploadFileName}`,
+    },
+  });
+  upload.on("httpUploadProgress", (progress) => {
+    const loaded = progress.loaded || 0;
+    const total = progress.total || fileStats.size;
+    const pct = Math.round((loaded / total) * 100);
+    console.log(`  📊 ${uploadFileName}: ${pct}% (${(loaded/(1024*1024)).toFixed(2)}MB / ${(total/(1024*1024)).toFixed(2)}MB)`);
+  });
+  await upload.done();
+  console.log(`  ✅ Uploaded: ${uploadFileName}`);
+
+  // Purge Cloudflare CDN cache for this file
+  if (process.env.CF_ZONE_ID && process.env.CF_API_TOKEN && process.env.R2_PUBLIC_URL) {
+    const purgeUrl = `${process.env.R2_PUBLIC_URL}/${uploadFileName}`;
+    const purgeRes = await fetch(
+      `https://api.cloudflare.com/client/v4/zones/${process.env.CF_ZONE_ID}/purge_cache`,
+      {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${process.env.CF_API_TOKEN}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ files: [purgeUrl] }),
+      }
+    );
+    const purgeData = await purgeRes.json();
+    if (purgeData.success) {
+      console.log(`  🔄 Cache purged: ${purgeUrl}`);
+    } else {
+      console.error(`  ❌ Cache purge failed for ${purgeUrl}:`, JSON.stringify(purgeData.errors));
+    }
+  }
+}
+
 async function uploadZipToR2() {
   try {
     const fileName = "emulator-build.zip";
-    console.log(
-      `\n📤 Preparing to upload ${fileName} (${fileSize} MB) to R2 bucket ${process.env.R2_BUCKET_NAME}...`
-    );
+    console.log(`\n📤 Uploading ${fileSize} MB to R2 bucket ${process.env.R2_BUCKET_NAME}...`);
+    console.log(`🔗 Endpoint: https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`);
 
-    // Configuration info
-    console.log(
-      `🔗 Using endpoint: https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
-    );
-    console.log(`🪣 Bucket: ${process.env.R2_BUCKET_NAME}`);
-    console.log(
-      `🔑 Using access key: ${process.env.R2_ACCESS_KEY_ID.substring(
-        0,
-        5
-      )}...${process.env.R2_ACCESS_KEY_ID.substring(
-        process.env.R2_ACCESS_KEY_ID.length - 5
-      )}`
-    );
+    // Upload unversioned (emulator-build.zip)
+    await uploadToR2(fileName);
 
-    // Create a read stream for the file
-    console.log(`⏳ Creating file stream...`);
-    const fileStream = fs.createReadStream(zipFilePath);
-
-    // Use the Upload class from @aws-sdk/lib-storage for multipart uploads
-    console.log(`⏳ Starting multipart upload...`);
-    const upload = new Upload({
-      client: r2Client,
-      params: {
-        Bucket: process.env.R2_BUCKET_NAME,
-        Key: fileName,
-        Body: fileStream,
-        ContentType: "application/zip",
-        ContentDisposition: `attachment; filename=${fileName}`,
-      },
-    });
-
-    // Add event listeners for progress
-    upload.on("httpUploadProgress", (progress) => {
-      const loaded = progress.loaded || 0;
-      const total = progress.total || fileStats.size;
-      const percentLoaded = Math.round((loaded / total) * 100);
-      console.log(
-        `📊 Upload progress: ${percentLoaded}% (${(
-          loaded /
-          (1024 * 1024)
-        ).toFixed(2)}MB / ${(total / (1024 * 1024)).toFixed(2)}MB)`
-      );
-    });
-
-    // Start the upload
-    await upload.done();
-
-    console.log("✅ Upload successful!");
-
-    // Purge Cloudflare CDN cache so devices get the new build immediately
-    if (process.env.CF_ZONE_ID && process.env.CF_API_TOKEN) {
-      const purgeUrl = `${process.env.R2_PUBLIC_URL}/${fileName}`;
-      console.log(`\n🔄 Purging Cloudflare cache for: ${purgeUrl}`);
-      const purgeRes = await fetch(
-        `https://api.cloudflare.com/client/v4/zones/${process.env.CF_ZONE_ID}/purge_cache`,
-        {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${process.env.CF_API_TOKEN}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ files: [purgeUrl] }),
-        }
-      );
-      const purgeData = await purgeRes.json();
-      if (purgeData.success) {
-        console.log("✅ Cloudflare cache purged successfully!");
-      } else {
-        console.error("❌ Cloudflare cache purge failed:", JSON.stringify(purgeData.errors));
-      }
-    } else {
-      console.warn("⚠️  CF_ZONE_ID or CF_API_TOKEN not set — skipping Cloudflare cache purge");
+    // Also upload versioned copy (emulator-build-0.0.8.zip) to bypass CDN cache
+    if (buildVersion) {
+      const versionedName = `emulator-build-${buildVersion}.zip`;
+      await uploadToR2(versionedName);
+      console.log(`\n⭐ Versioned URL: ${process.env.R2_PUBLIC_URL}/${versionedName}`);
     }
-
-    // Log the URL in a more prominent way
-    const directR2Url = `https://${process.env.R2_BUCKET_NAME}.${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${fileName}`;
-
-    console.log("\n📋 File URLs:");
-    console.log("====================");
-
-    if (process.env.R2_PUBLIC_URL) {
-      console.log(`🌐 Public URL: ${process.env.R2_PUBLIC_URL}/${fileName}`);
-    }
-
-    console.log(`🔒 Direct R2 URL: ${directR2Url}`);
-    console.log("====================\n");
 
     console.log("\n🎉 Upload process completed successfully!\n");
   } catch (error) {
     console.error("❌ Error uploading to R2:", error.message);
-    console.error("\n💡 Troubleshooting suggestions:");
-    console.error("  1. Verify your R2 credentials in the .env file");
-    console.error("  2. Check your network connection");
-    console.error(
-      "  3. Try uploading a smaller test file using test-r2-connection.js"
-    );
-    console.error(
-      "  4. The file might be too large - check if your R2 bucket has size limits"
-    );
     process.exit(1);
   }
 }
