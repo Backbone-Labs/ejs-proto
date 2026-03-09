@@ -3,6 +3,38 @@
 
 <head>
   <meta name="viewport" content="width = device-width, initial-scale = 1" />
+  <script>
+    // ── iOS native log bridge ─────────────────────────────────────────────────
+    // Forwards all JS console output + WASM crashes to the iOS logger so they
+    // appear in Xcode / Console.app without needing Safari Web Inspector.
+    (function() {
+      function postToNative(level, msg) {
+        try {
+          if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.ejsLog) {
+            window.webkit.messageHandlers.ejsLog.postMessage({ level: level, msg: String(msg) });
+          }
+        } catch(e) {}
+      }
+      var _log   = console.log.bind(console);
+      var _warn  = console.warn.bind(console);
+      var _error = console.error.bind(console);
+      console.log   = function() { var m = Array.from(arguments).join(' '); _log(m);   postToNative('log',   m); };
+      console.warn  = function() { var m = Array.from(arguments).join(' '); _warn(m);  postToNative('warn',  m); };
+      console.error = function() { var m = Array.from(arguments).join(' '); _error(m); postToNative('error', m); };
+
+      // WASM abort (Emscripten)
+      window.Module = window.Module || {};
+      window.Module.onAbort = function(reason) { postToNative('error', 'WASM ABORT: ' + reason); };
+
+      // Unhandled promise rejections (async failures)
+      window.addEventListener('unhandledrejection', function(e) {
+        postToNative('error', 'UNHANDLED REJECTION: ' + e.reason);
+      });
+
+      // Signal iOS when EmulatorJS fires its own "ready" event
+      window.EJS_ready = function() { window.__ejsReady = true; postToNative('log', 'EJS_ready fired'); };
+    })();
+  </script>
   <script src="data/src/gamepad.js"></script>
   <style>
     @font-face {
