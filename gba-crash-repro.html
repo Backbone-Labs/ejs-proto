@@ -101,12 +101,14 @@
   });
 
   // ── EmulatorJS config ──────────────────────────────────────────────────────
-  // Using the official EmulatorJS CDN (unpatched cores — asyncify enabled,
-  // ALLOW_MEMORY_GROWTH=1) to reproduce the original iOS 26.x WKWebView crash.
+  // Using self-hosted EJS 4.2.1 + original pre-patch mgba cores (asyncify=1,
+  // ALLOW_MEMORY_GROWTH=1) — this is the exact unpatched configuration that
+  // crashes on iOS 26.x WKWebView. Files extracted from ejs-proto git commit
+  // 84850e6 and hosted at files.backbon3.com/ejs-original/.
   window.EJS_player      = '#game';
   window.EJS_core        = 'mgba';
   window.EJS_gameUrl     = 'https://files.backbon3.com/anguna.gba';
-  window.EJS_pathtodata  = 'https://cdn.emulatorjs.org/stable/data/';
+  window.EJS_pathtodata  = 'https://files.backbon3.com/ejs-original/data/';
   window.EJS_startOnLoaded = true;
   window.EJS_disableDatabases = true;
   window.EJS_hideMenuBar = true;
@@ -119,19 +121,19 @@
     log('Game started', 'l-ok');
   };
 
-  // ── Load EmulatorJS from CDN ───────────────────────────────────────────────
-  log('Loading EmulatorJS from CDN (unpatched, asyncify=1)…');
+  // ── Load EmulatorJS (self-hosted original, unpatched) ─────────────────────
+  log('Loading EJS 4.2.1 + original mgba cores (asyncify=1, self-hosted)…');
   setStatus('Loading…', 'running');
 
   var t0 = Date.now();
   var script = document.createElement('script');
-  script.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
+  script.src = 'https://files.backbon3.com/ejs-original/data/loader.js';
   script.onload = function() {
     log('loader.js loaded (' + (Date.now() - t0) + 'ms)');
   };
   script.onerror = function() {
-    log('Failed to load loader.js from CDN', 'l-fail');
-    setStatus('Failed to load EmulatorJS CDN', 'fail');
+    log('Failed to load loader.js', 'l-fail');
+    setStatus('Failed to load EmulatorJS', 'fail');
   };
   document.body.appendChild(script);
 
