@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>iOS 26 WKWebView GBA WASM Crash Repro</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #111;
+      color: #ddd;
+      font-family: -apple-system, sans-serif;
+      padding: 16px;
+      max-width: 680px;
+      margin: 0 auto;
+    }
+    h1 { font-size: 1.1em; color: #fff; margin-bottom: 4px; }
+    .sub { font-size: 0.78em; color: #777; margin-bottom: 16px; }
+    .sub a { color: #64b5f6; }
+    #status {
+      font-size: 0.82em;
+      padding: 8px 12px;
+      border-radius: 6px;
+      margin-bottom: 12px;
+      background: #222;
+      color: #888;
+    }
+    #status.running { background: #332200; color: #ffb300; }
+    #status.pass    { background: #0a2a0a; color: #66bb6a; }
+    #status.fail    { background: #2a0a0a; color: #ef5350; }
+    #game {
+      width: 100%;
+      aspect-ratio: 3/2;
+      background: #000;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    #log {
+      margin-top: 12px;
+      border: 1px solid #2a2a2a;
+      border-radius: 6px;
+      padding: 10px;
+      height: 200px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 0.72em;
+    }
+    .l { margin: 1px 0; }
+    .l-info { color: #888; }
+    .l-ok   { color: #66bb6a; }
+    .l-fail { color: #ef5350; }
+    .l-warn { color: #ffb300; }
+    #meta { font-size: 0.68em; color: #444; margin-bottom: 12px; word-break: break-all; }
+  </style>
+</head>
+<body>
+
+<h1>iOS 26 WKWebView — GBA WASM Crash Repro</h1>
+<div class="sub">
+  Reproduces the <strong>mgba / RetroArch WASM crash</strong> in WKWebView on iOS 26.x.<br>
+  ROM: <em>Anguna: Warrior of Darkness</em> (open-source GBA homebrew, 1.7 MB).<br>
+  Reference: <a href="https://github.com/EmulatorJS/EmulatorJS/issues/1143">EmulatorJS/EmulatorJS#1143</a>
+</div>
+<div id="meta"></div>
+<div id="status">Loading EmulatorJS…</div>
+<div id="game"></div>
+<div id="log"></div>
+
+<script>
+  document.getElementById('meta').textContent =
+    'UA: ' + navigator.userAgent + '  |  ' + new Date().toISOString();
+
+  // ── Log helpers ────────────────────────────────────────────────────────────
+  function log(msg, cls) {
+    var el = document.createElement('div');
+    el.className = 'l ' + (cls || 'l-info');
+    el.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+    var box = document.getElementById('log');
+    box.appendChild(el);
+    box.scrollTop = box.scrollHeight;
+  }
+  function setStatus(msg, cls) {
+    var el = document.getElementById('status');
+    el.textContent = msg;
+    el.className = cls || '';
+  }
+
+  // ── Crash / abort detection ────────────────────────────────────────────────
+  window.Module = window.Module || {};
+  window.Module.onAbort = function(reason) {
+    log('WASM ABORT: ' + reason, 'l-fail');
+    setStatus('CRASHED — WASM abort: ' + reason, 'fail');
+  };
+  window.addEventListener('unhandledrejection', function(e) {
+    log('UNHANDLED REJECTION: ' + e.reason, 'l-fail');
+    setStatus('CRASHED — unhandled rejection: ' + e.reason, 'fail');
+  });
+  window.addEventListener('error', function(e) {
+    log('JS ERROR: ' + e.message + ' (' + e.filename + ':' + e.lineno + ')', 'l-fail');
+    setStatus('CRASHED — JS error: ' + e.message, 'fail');
+  });
+
+  // ── EmulatorJS config ──────────────────────────────────────────────────────
+  // Using the official EmulatorJS CDN (unpatched cores — asyncify enabled,
+  // ALLOW_MEMORY_GROWTH=1) to reproduce the original iOS 26.x WKWebView crash.
+  window.EJS_player      = '#game';
+  window.EJS_core        = 'mgba';
+  window.EJS_gameUrl     = 'https://files.backbon3.com/anguna.gba';
+  window.EJS_pathtodata  = 'https://cdn.emulatorjs.org/stable/data/';
+  window.EJS_startOnLoaded = true;
+  window.EJS_disableDatabases = true;
+  window.EJS_hideMenuBar = true;
+
+  window.EJS_ready = function() {
+    log('EJS ready — emulator running', 'l-ok');
+    setStatus('Running — game loaded successfully (no crash)', 'pass');
+  };
+  window.EJS_onGameStart = function() {
+    log('Game started', 'l-ok');
+  };
+
+  // ── Load EmulatorJS from CDN ───────────────────────────────────────────────
+  log('Loading EmulatorJS from CDN (unpatched, asyncify=1)…');
+  setStatus('Loading…', 'running');
+
+  var t0 = Date.now();
+  var script = document.createElement('script');
+  script.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
+  script.onload = function() {
+    log('loader.js loaded (' + (Date.now() - t0) + 'ms)');
+  };
+  script.onerror = function() {
+    log('Failed to load loader.js from CDN', 'l-fail');
+    setStatus('Failed to load EmulatorJS CDN', 'fail');
+  };
+  document.body.appendChild(script);
+
+  // ── Watchdog — flag if still not ready after 30s ───────────────────────────
+  setTimeout(function() {
+    if (!window.EJS_emulator || !window.EJS_emulator.gameManager) {
+      log('WATCHDOG: emulator not ready after 30s — likely crashed or OOM', 'l-fail');
+      setStatus('TIMED OUT — emulator not ready after 30s', 'fail');
+    }
+  }, 30000);
+</script>
+</body>
+</html>
