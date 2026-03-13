@@ -113,9 +113,41 @@
   window.EJS_disableDatabases = true;
   window.EJS_hideMenuBar = true;
 
+  // ── Countdown after game loads ────────────────────────────────────────────
+  var countdownInterval = null;
+  var crashed = false;
+
+  function stopCountdown() {
+    if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+  }
+
+  function startCrashCountdown() {
+    var secs = 30;
+    setStatus('Game loaded — crash expected in ' + secs + 's…', 'running');
+    countdownInterval = setInterval(function() {
+      secs--;
+      if (crashed) { stopCountdown(); return; }
+      if (secs <= 0) {
+        stopCountdown();
+        log('No crash detected after 30s', 'l-warn');
+        setStatus('No crash after 30s — may not reproduce on this device/OS', 'pass');
+      } else {
+        setStatus('Game loaded — crash expected in ' + secs + 's…', 'running');
+      }
+    }, 1000);
+  }
+
+  // Intercept crash setStatus calls to stop the countdown
+  var _origSetStatus = setStatus;
+  setStatus = function(msg, cls) {
+    if (cls === 'fail') { crashed = true; stopCountdown(); }
+    _origSetStatus(msg, cls);
+  };
+
   window.EJS_ready = function() {
-    log('EJS ready — emulator running', 'l-ok');
-    setStatus('Running — game loaded successfully (no crash)', 'pass');
+    window.__ejsReady = true;
+    log('EJS ready — game running, waiting for crash…', 'l-ok');
+    startCrashCountdown();
   };
   window.EJS_onGameStart = function() {
     log('Game started', 'l-ok');
@@ -137,13 +169,13 @@
   };
   document.body.appendChild(script);
 
-  // ── Watchdog — flag if still not ready after 30s ───────────────────────────
+  // ── Watchdog — flag if still not loaded after 60s ─────────────────────────
   setTimeout(function() {
-    if (!window.EJS_emulator || !window.EJS_emulator.gameManager) {
-      log('WATCHDOG: emulator not ready after 30s — likely crashed or OOM', 'l-fail');
-      setStatus('TIMED OUT — emulator not ready after 30s', 'fail');
+    if (!crashed && !countdownInterval && !window.__ejsReady) {
+      log('WATCHDOG: emulator never loaded after 60s — likely crashed during init', 'l-fail');
+      setStatus('TIMED OUT — emulator never started (crashed during load?)', 'fail');
     }
-  }, 30000);
+  }, 60000);
 </script>
 </body>
 </html>
